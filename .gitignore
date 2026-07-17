@@ -1,61 +1,34 @@
-# ==========================================
-# Hardhat & Truffle Artifacts / Build Outputs
-# ==========================================
-artifacts/
-build/
-cache/
-contracts/hardhat-export-outputs.json
+# Node modules
+/node_modules
 
-# ==========================================
-# Foundry / Forge Outputs
-# ==========================================
-out/
-forge-cache/
+# Compilation output
+/dist
 
-# ==========================================
-# Remix IDE Cache & Plugins
-# ==========================================
-.deps/
-.remix/
-.remix-history/
+# pnpm deploy output
+/bundle
 
-# ==========================================
-# Dependencies & Package Managers
-# ==========================================
-node_modules/
-/lib/
-!/lib/forge-std # Keep forge-std if you want to track it via git submodules instead of package managers
+# Hardhat Build Artifacts
+/artifacts
 
-# ==========================================
-# Environment Variables & Secrets (CRITICAL)
-# ==========================================
+# Hardhat compilation (v2) support directory
+/cache
+
+# Typechain output
+/types
+
+# Environment files
 .env
 .env.*
 !.env.example
-secrets.json
 
-# ==========================================
-# Slither & Security Analysis Tools
-# ==========================================
-slither-solc-out/
-crytic-export/
-slither.db.json
+# Hardhat coverage reports
+/coverage
 
-# ==========================================
-# Type Generation (Optional)
-# ==========================================
-typechain/
-typechain-types/
+# Gas snapshot files
+/.gas-snapshot
 
-# ==========================================
-# System & Editor Files
-# ==========================================
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-*.swp
-*.log
+# Snapshot cheatcodes output
+/snapshots
 
-# For personal artifacts and files
+# Personal files
 personal/*
