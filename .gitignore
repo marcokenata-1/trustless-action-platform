@@ -1,0 +1,61 @@
+# ==========================================
+# Hardhat & Truffle Artifacts / Build Outputs
+# ==========================================
+artifacts/
+build/
+cache/
+contracts/hardhat-export-outputs.json
+
+# ==========================================
+# Foundry / Forge Outputs
+# ==========================================
+out/
+forge-cache/
+
+# ==========================================
+# Remix IDE Cache & Plugins
+# ==========================================
+.deps/
+.remix/
+.remix-history/
+
+# ==========================================
+# Dependencies & Package Managers
+# ==========================================
+node_modules/
+/lib/
+!/lib/forge-std # Keep forge-std if you want to track it via git submodules instead of package managers
+
+# ==========================================
+# Environment Variables & Secrets (CRITICAL)
+# ==========================================
+.env
+.env.*
+!.env.example
+secrets.json
+
+# ==========================================
+# Slither & Security Analysis Tools
+# ==========================================
+slither-solc-out/
+crytic-export/
+slither.db.json
+
+# ==========================================
+# Type Generation (Optional)
+# ==========================================
+typechain/
+typechain-types/
+
+# ==========================================
+# System & Editor Files
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.log
+
+# For personal artifacts and files
+personal/*
