@@ -9,6 +9,7 @@ import {
   computeProofsHash,
   getAttendanceParticipant,
   getHandshakePeerAddress,
+  createMutualHandshake,
   createHandshake,
   signAttendance,
   signHandshake,
@@ -43,6 +44,23 @@ async function collectProofs(
 }
 
 describe("attendance EIP-712 helpers", function () {
+  it("creates a mutual handshake with swapped roles and a shared timestamp", async function () {
+    const [partyA, partyB] = await ethers.getSigners();
+    const [handshakeForA, handshakeForB] = createMutualHandshake(
+      1n,
+      await partyA.getAddress(),
+      await partyB.getAddress(),
+      1_700_000_000n,
+    );
+
+    expect(handshakeForA.participant).to.equal(await partyA.getAddress());
+    expect(handshakeForA.peer).to.equal(await partyB.getAddress());
+    expect(handshakeForB.participant).to.equal(await partyB.getAddress());
+    expect(handshakeForB.peer).to.equal(await partyA.getAddress());
+    expect(handshakeForA.timestamp).to.equal(handshakeForB.timestamp);
+    expect(handshakeForA.nonce).to.not.equal(handshakeForB.nonce);
+  });
+
   it("builds attendance claim via proofsHash", async function () {
     const [participant, ...peers] = await ethers.getSigners();
     const domain = attendanceDomain(31337n, ZeroAddress);

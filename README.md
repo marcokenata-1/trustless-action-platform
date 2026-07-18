@@ -1,57 +1,45 @@
-# Sample Hardhat 3 Project (`mocha` and `ethers`)
+# Project setup commands
 
-This project showcases a Hardhat 3 project using `mocha` for tests and the `ethers` library for Ethereum interactions.
+## Install
 
-To learn more about Hardhat 3, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3](https://hardhat.org/hardhat3-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+npm install
 
-## Project Overview
+## Compile contracts
 
-This example project includes:
+npm run compile
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using `mocha` and ethers.js
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+## Typecheck / tests
 
-## Usage
+npm run typecheck
+npm test
 
-### Running Tests
+## Running local
 
-To run all the tests in the project, execute the following command:
+## Terminal 1 - Run a local blockchain node using hardhat
 
-```shell
-npx hardhat test
-```
+npx hardhat node
 
-You can also selectively run the Solidity or `mocha` tests:
+## Terminal 2 — deploy AttendanceVerifier demo module
 
-```shell
-npx hardhat test solidity
-npx hardhat test mocha
-```
+npx hardhat ignition deploy ignition/modules/AttendanceDemo.ts --network localhost
 
-### Make a deployment to Sepolia
+## Simulator env
 
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
+cp services/simulator/.env.example services/simulator/.env
 
-To run the deployment to a local chain:
+Set ATTENDANCE_VERIFIER_ADDRESS to the deployed address from ignition
 
-```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
-```
+## Terminal 3 - Run simulator
 
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
+node --import tsx --env-file=services/simulator/.env services/simulator/server.ts
 
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
+## Terminal 4 - Simulating handshake by hitting simulator API
 
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
+1. Simulate handshake by hitting the API. Hit the API 3 times, each times simulate a handshake between A with a different person. So A will be handshake with 3 other ppl.
+   curl -s http://127.0.0.1:3001/simulate/handshake -H 'content-type: application/json' -d '{YOUR_PAYLOAD}'
 
-```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
-```
+2. Let A perform attest to build his attendance structure after having 3 other ppl handshake with him.
+   curl -s http://127.0.0.1:3001/simulate/attest -H 'content-type: application/json' -d '{YOUR_PAYLOAD}'
 
-After setting the variable, you can run the deployment with the Sepolia network:
-
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
-```
+3. Let A submit his attedance proof.
+   curl -s http://127.0.0.1:3001/submit -H 'content-type: application/json' -d '{YOUR_PAYLOAD}'

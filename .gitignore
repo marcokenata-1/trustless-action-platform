@@ -35,5 +35,8 @@
 # Snapshot cheatcodes output
 /snapshots
 
+# Hardhat Ignition local-node deployments (ephemeral; regenerate on redeploy)
+ignition/deployments/*
+
 # Personal files
 personal/*
