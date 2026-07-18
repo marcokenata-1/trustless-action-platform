@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// TODO: Yet to be finalized with Jack
+// TODO: finalize with @jack
 /*
   Movement lifecycle (see MovementState):
   Pending -> Active (threshold reached)

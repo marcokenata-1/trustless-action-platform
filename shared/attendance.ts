@@ -73,7 +73,7 @@ export function attendanceDomain(
   };
 }
 
-export function newHandshake(
+export function createHandshake(
   movementId: bigint,
   participant: string,
   peer: string,
@@ -93,6 +93,18 @@ export function newHandshake(
     nonce: hexlify(randomBytes(32)),
     timestamp,
   };
+}
+
+export function createMutualHandshake(
+  movementId: bigint,
+  partyA: string,
+  partyB: string,
+  timestamp: bigint = BigInt(Math.floor(Date.now() / 1_000)),
+): [Handshake, Handshake] {
+  return [
+    createHandshake(movementId, partyA, partyB, timestamp),
+    createHandshake(movementId, partyB, partyA, timestamp),
+  ];
 }
 
 export async function signHandshake(
