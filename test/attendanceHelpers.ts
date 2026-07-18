@@ -9,7 +9,7 @@ import {
   computeProofsHash,
   getAttendanceParticipant,
   getHandshakePeerAddress,
-  newHandshake,
+  createHandshake,
   signAttendance,
   signHandshake,
   sortHandshakeProofs,
@@ -29,7 +29,7 @@ async function collectProofs(
 
   for (const peer of peers) {
     const peerAddress = await peer.getAddress();
-    const handshake = newHandshake(
+    const handshake = createHandshake(
       movementId,
       participantAddress,
       peerAddress,
@@ -98,7 +98,7 @@ describe("attendance EIP-712 helpers", function () {
   it("rejects duplicate peers before submission", async function () {
     const [participant, peer] = await ethers.getSigners();
     const domain = attendanceDomain(31337n, ZeroAddress);
-    const handshake = newHandshake(
+    const handshake = createHandshake(
       1n,
       await participant.getAddress(),
       await peer.getAddress(),
@@ -109,11 +109,7 @@ describe("attendance EIP-712 helpers", function () {
     };
 
     expect(() =>
-      buildAttendance(domain, [
-        duplicateProof,
-        duplicateProof,
-        duplicateProof,
-      ]),
+      buildAttendance(domain, [duplicateProof, duplicateProof, duplicateProof]),
     ).to.throw("Attendance peers must be unique");
   });
 
@@ -126,5 +122,4 @@ describe("attendance EIP-712 helpers", function () {
       "Attendance requires at least 3 peers, got 1",
     );
   });
-
 });
