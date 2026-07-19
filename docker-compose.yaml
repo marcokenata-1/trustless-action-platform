@@ -1,0 +1,29 @@
+services:
+  api:
+    build: .
+    container_name: blockchain-container
+    ports:
+      - "8000:8000"
+  
+  postgres:
+    # Build Postgres Image
+    image: postgres:16-alpine
+    # Setup Container Name
+    container_name: blockchain-postgres
+    # Set restart codition
+    restart: unless-stopped
+    # Setup Environment
+    environment:
+      POSTGRES_DB: ${database_name:-blockchain_db}
+      POSTGRES_USER: ${database_user:-user}
+      POSTGRES_PASSWORD: ${database_password:-password}
+    # Port Configuration
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    # Make sure the database persist on container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  postgres_data:

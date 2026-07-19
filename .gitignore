@@ -1,0 +1,8 @@
+# Exclude Cache
+__pycache__
+
+# Environment Variables
+.venv/
+.env
+
+.db
