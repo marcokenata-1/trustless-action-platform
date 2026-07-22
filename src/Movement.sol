@@ -132,4 +132,8 @@ contract Movement {
         return movements[movementId].status;
     }
 
+    function isActive(uint256 movementId) external view returns (bool) {
+        return getStatus(movementId) == Status.Activated;
+    }
+
 }
