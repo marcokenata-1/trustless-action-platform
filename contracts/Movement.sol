@@ -128,7 +128,7 @@ contract Movement {
         return committed[movementId][account];
     }
 
-    function getStatus(uint256 movementId) external view returns (Status) {
+    function getStatus(uint256 movementId) public view returns (Status) {
         return movements[movementId].status;
     }
 
