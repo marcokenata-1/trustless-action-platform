@@ -13,6 +13,25 @@ class Settings(BaseSettings):
     database_password: str | None = None
     database_url: str | None = None 
 
+    hardhat_url: str | None = None
+
+    # Hardhat Smart Contract address and ABI
+    # TODO : Add address and ABI of deployed contract
+    contracts : dict[str, dict[str, any]] = {
+        "movement_contract" : {
+            "address" : None, 
+            "abi" : [
+                {
+                    "inputs": [],
+                    "name": "whoAmI",
+                    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+                    "stateMutability": "view",
+                    "type": "function"
+                }   
+            ]
+        }, 
+    }
+
     model_config = SettingsConfigDict(
         env_file=".env"
     )

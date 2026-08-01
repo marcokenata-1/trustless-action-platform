@@ -1,4 +1,26 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+
+from uuid import UUID
+from web3 import Web3
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from models import Movement
+from schemas import MovementResponse, MovementPayload, UserResponse
+from database import get_db
+from dependencies import GetContract
+
+from routers.users import get_user_average_reputation
+
+def movement_item(session: Movement) -> MovementResponse:
+    return MovementResponse(
+        id=session.id,
+        organizer=session.organizer,
+        title=session.title,
+        due=session.due,
+        status=session.status
+    )
 
 router = APIRouter(
     prefix="/movement",
@@ -6,5 +28,62 @@ router = APIRouter(
 )
 
 @router.get("/")
-def get_movements():
-    return
+def get_movements(
+    db : Session = Depends(get_db)
+) -> list[MovementResponse]:
+    """
+        Retrieve All Movements data from database
+        Endpoint : /movement
+    """
+
+    # Query to retrieve all movements
+    statement = select(Movement).order_by(Movement.created_at)
+
+    # Extract raw database results to ORM object
+    sessions = db.scalars(statement).all()
+
+    return [movement_item(session) for session in sessions]
+
+
+
+# Get User reputation, create movement and filter, connect to ether 
+@router.post("/create", status_code=201)
+def create_movement(
+    current_user : UserResponse,
+    movement_input : MovementPayload,
+    db : Session = Depends(get_db),
+    threshold : float = Depends(get_user_average_reputation), # Get average reputation across all users
+    movement_contract = Depends(GetContract('movement_contract'))
+):  
+    
+    # Validate User Reputation
+    if current_user.reputation < threshold:
+        raise HTTPException(
+            status_code=400,
+            detail="Insufficient Reputation to create movement"
+        )
+
+    # Call 'createRequirement' function from movement_contract
+    onchain_requirement = movement_contract.caller().createRequirement()
+
+    # If offchain and onchain requirement doesn't match
+    if threshold != onchain_requirement:
+        pass
+
+    ipfs_id = ''
+    
+    # Create New Movement Instance
+    new_movement = Movement(
+        title=movement_input.title,
+        due=movement_input.due,
+        organizer=current_user.id,
+        ipfs_id=ipfs_id,
+        onhain_id=None,
+    )
+
+    # Add new movement to database
+    db.add(new_movement)
+    db.commit()
+    db.refresh(new_movement)
+
+    return new_movement
