@@ -1,16 +1,21 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "./assets/vite.svg";
-import heroImg from "./assets/hero.png";
+import { useAccount } from "wagmi";
 import "./App.css";
-import { ConnectWallet } from "./components/ConnectWallet";
+import { AppBar } from "./components/AppBar";
 import { CreateMovementForm } from "./components/CreateMovementForm";
 
 function App() {
+  const { isConnected } = useAccount();
+
   return (
     <>
-    <ConnectWallet />
-    <CreateMovementForm />
+      <AppBar />
+      {isConnected ? (
+        <CreateMovementForm />
+      ) : (
+        <p className="connect-prompt">
+          Connect your wallet to create a movement.
+        </p>
+      )}
     </>
   );
 }

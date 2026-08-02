@@ -161,6 +161,88 @@
   }
 }
 
+.appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+
+  .appbar-title {
+    font-weight: 600;
+    color: var(--text-h);
+  }
+}
+
+.connect-prompt {
+  padding: 48px 24px;
+  color: var(--text);
+}
+
+.movement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 480px;
+  margin: 32px auto;
+  padding: 0 24px;
+  text-align: left;
+
+  fieldset {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  legend {
+    padding: 0 6px;
+    color: var(--text-h);
+    font-weight: 600;
+  }
+
+  label {
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  input,
+  textarea {
+    font: inherit;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-h);
+  }
+
+  button {
+    align-self: flex-start;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--bg);
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .file-count {
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .form-error {
+    color: #e5484d;
+  }
+}
+
 .ticks {
   position: relative;
   width: 100%;
