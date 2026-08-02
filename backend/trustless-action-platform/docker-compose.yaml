@@ -4,6 +4,8 @@ services:
     container_name: blockchain-container
     ports:
       - "8000:8000"
+    env_file:
+      - .env
   
   postgres:
     # Build Postgres Image

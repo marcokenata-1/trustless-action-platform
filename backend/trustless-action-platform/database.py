@@ -5,9 +5,7 @@ from config import get_settings
 settings = get_settings()
 
 def get_database_url():
-    if not settings.database_url:
-        return f"postgresql+psycopg://user:password@localhost:5432/figgs_db"
-    return settings.database_url
+    return f"postgresql+psycopg://{settings.database_user}:{settings.database_password}@{settings.database_host}:{settings.database_port}/{settings.database_name}"
 
 # Create SQL Alchemy Engine
 engine = create_engine(
