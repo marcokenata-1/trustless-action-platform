@@ -53,7 +53,7 @@ function buildMovementManifest(
   return { description, images, media };
 }
 
-async function uploadMovementWiki(
+export default async function uploadMovementWiki(
   imageFiles: File[],
   description: string,
 ): Promise<string> {
