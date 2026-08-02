@@ -224,6 +224,11 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px 16px;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--accent-border);
+    }
   }
 
   .movement-title {
@@ -239,6 +244,44 @@
   .movement-due {
     font-size: 13px;
     color: var(--text);
+  }
+}
+
+.movement-detail {
+  max-width: 480px;
+  margin: 32px auto;
+  padding: 0 24px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .movement-detail-back {
+    align-self: flex-start;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  h2 {
+    margin: 0;
+    text-align: left;
+  }
+
+  .movement-detail-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+
+    img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
   }
 }
 

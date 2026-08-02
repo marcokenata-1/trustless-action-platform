@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-type MovementResponse = {
+export type MovementResponse = {
   id: string;
   onchain_id: number | null;
   ipfs_id: string | null;
@@ -10,7 +10,11 @@ type MovementResponse = {
   status: string;
 };
 
-export function MovementList() {
+type MovementListProps = {
+  onSelect: (movement: MovementResponse) => void;
+};
+
+export function MovementList({ onSelect }: MovementListProps) {
   const { data: movements, isLoading, error } = useQuery({
     queryKey: ["movements"],
     queryFn: async () => {
@@ -29,7 +33,7 @@ export function MovementList() {
   return (
     <ul className="movement-list">
       {movements.map((m) => (
-        <li key={m.id}>
+        <li key={m.id} onClick={() => onSelect(m)}>
           <span className="movement-title">{m.title}</span>
           <span className="movement-status">{m.status}</span>
           <span className="movement-due">
