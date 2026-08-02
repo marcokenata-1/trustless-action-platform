@@ -10,8 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "viem": "^2.55.10",
+    "wagmi": "^3.7.5"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
