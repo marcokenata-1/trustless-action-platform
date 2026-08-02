@@ -53,7 +53,7 @@ def create_movement(
     movement_input : MovementPayload,
     db : Session = Depends(get_db),
     threshold : float = Depends(get_user_average_reputation), # Get average reputation across all users
-    movement_contract = Depends(GetContract('movement_contract'))
+    reputation_contract = Depends(GetContract('Reputation'))
 ):  
     
     # Validate User Reputation
@@ -63,11 +63,11 @@ def create_movement(
             detail="Insufficient Reputation to create movement"
         )
 
-    # Call 'createRequirement' function from movement_contract
-    onchain_requirement = movement_contract.caller().createRequirement()
+    # Call Mamun's 'recommendedCreateRequirement' function from movement_contract
+    onchain_requirement = reputation_contract.caller().recommendedCreateRequirement()
 
     # If offchain and onchain requirement doesn't match
-    if threshold != onchain_requirement:
+    if int(threshold) != (onchain_requirement):
         pass
 
     ipfs_id = ''

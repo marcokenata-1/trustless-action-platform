@@ -1,4 +1,5 @@
 from fastapi import Depends
+import json
 
 from web3 import Web3
 
@@ -17,6 +18,7 @@ class GetContract:
 
         
         contract_info = settings.contracts[self.contract_name]
+        print(f"Contract Info : {contract_info}")
         checksum_address = w3.to_checksum_address(contract_info['address'])
 
         contract = w3.eth.contract(

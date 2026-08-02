@@ -14,9 +14,9 @@ services:
     restart: unless-stopped
     # Setup Environment
     environment:
-      POSTGRES_DB: ${database_name:-blockchain_db}
-      POSTGRES_USER: ${database_user:-user}
-      POSTGRES_PASSWORD: ${database_password:-password}
+      POSTGRES_DB: ${database_name:-figgs_db}
+      POSTGRES_USER: ${database_user:-figgs_user}
+      POSTGRES_PASSWORD: ${database_password:-figgs_password}
     # Port Configuration
     ports:
       - "${POSTGRES_PORT:-5432}:5432"

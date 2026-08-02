@@ -4,7 +4,7 @@ from uuid import UUID
 from web3 import Web3
 import json
 
-from eth_account import encode_defunct
+from eth_account.messages import encode_defunct
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -32,7 +32,7 @@ def wallet_login(
 ):
     
     # Validate Address 
-    if w3.is_address(payload.address):
+    if not w3.is_address(payload.address):
         raise HTTPException(
             status=400,
             detail="Invalid Ethereum address format"
@@ -87,3 +87,12 @@ def wallet_login(
     db.refresh(user)
 
     return user
+
+@router.post("/auth/register", response_model = UserResponse)
+def wallet_register(
+    UserPayload : UserResponse,
+    db : Session = Depends(get_db),
+    web3 : Web3 = Depends(get_web3)
+):
+    
+    return

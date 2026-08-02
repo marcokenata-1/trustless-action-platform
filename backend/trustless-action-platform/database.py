@@ -6,7 +6,7 @@ settings = get_settings()
 
 def get_database_url():
     if not settings.database_url:
-        return f"postgresql+psycopg://user:password@postgres:5432/blockchain_db"
+        return f"postgresql+psycopg://user:password@localhost:5432/figgs_db"
     return settings.database_url
 
 # Create SQL Alchemy Engine

@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import users, movements
+from routers import users, movements, conn, auth
 from database import get_db
 
 ROUTERS = (
+    auth.router,
     users.router,
-    movements.router
+    movements.router,
+    conn.router
 )
 
 def create_app() -> FastAPI:
