@@ -2,14 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from uuid import UUID
 from web3 import Web3
+from eth.messages import encode_defunct
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from users import current_user
+
 from models import Movement
 from schemas import MovementResponse, MovementPayload, UserResponse
 from database import get_db
-from dependencies import GetContract
+from dependencies import GetContract, get_web3
 
 from routers.users import get_user_average_reputation
 
@@ -49,8 +52,8 @@ def get_movements(
 # Get User reputation, create movement and filter, connect to ether 
 @router.post("/create", status_code=201)
 def create_movement(
-    current_user : UserResponse,
     movement_input : MovementPayload,
+    w3 : Web3 = Depends(get_web3),
     db : Session = Depends(get_db),
     threshold : float = Depends(get_user_average_reputation), # Get average reputation across all users
     reputation_contract = Depends(GetContract('Reputation'))
@@ -63,12 +66,15 @@ def create_movement(
             detail="Insufficient Reputation to create movement"
         )
 
-    # Call Mamun's 'recommendedCreateRequirement' function from movement_contract
-    onchain_requirement = reputation_contract.caller().recommendedCreateRequirement()
+    # Call mamum's averageReputation 
+    onchain_requirement = reputation_contract.caller().averageReputation()
 
     # If offchain and onchain requirement doesn't match
     if int(threshold) != (onchain_requirement):
-        pass
+        raise HTTPException(
+            status_code=409,
+            detail="Offchain Requirement is not match with the onchain requirement"
+        )
 
     ipfs_id = ''
     
@@ -78,7 +84,7 @@ def create_movement(
         due=movement_input.due,
         organizer=current_user.id,
         ipfs_id=ipfs_id,
-        onhain_id=None,
+        onchain_id=None,
     )
 
     # Add new movement to database
@@ -86,4 +92,4 @@ def create_movement(
     db.commit()
     db.refresh(new_movement)
 
-    return new_movement
+    return new_movement()

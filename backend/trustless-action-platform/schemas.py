@@ -11,7 +11,7 @@ class APIModel(BaseModel):
 #           AUTH            #
 #############################
 
-class WalletLoginPayload(APIModel):
+class LoginPayload(APIModel):
     address : str
     message : str # Text user signed on frontend
     signature : str  # Hash produced by metamask
@@ -41,6 +41,8 @@ class MovementPayload(APIModel):
     title : str
     due : datetime
     ipfs_cid : str
+    address : str
+    signature : str
 
 # Movement Response
 class MovementResponse(APIModel):
