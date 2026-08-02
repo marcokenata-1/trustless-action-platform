@@ -7,24 +7,14 @@ const { ethers } = await network.create();
 // Constructor args used by the fixture below.
 const INIT = 100n; // initial grant
 const REWARD = 50n; // per-attendance reward
-const MULT_BPS = 30_000n; // 3x average
 
 async function deployFixture() {
   const [owner, verifier, alice, bob] = await ethers.getSigners();
 
-  const reputation = await ethers.deployContract("Reputation", [
-    INIT,
-    REWARD,
-    MULT_BPS,
-  ]);
-  // MovementMock is used only for the syncCreateRequirement test (the real Movement is not on main).
-  const movement = await ethers.deployContract("MovementMock");
-  await Promise.all([
-    reputation.waitForDeployment(),
-    movement.waitForDeployment(),
-  ]);
+  const reputation = await ethers.deployContract("Reputation", [INIT, REWARD]);
+  await reputation.waitForDeployment();
 
-  return { reputation, movement, owner, verifier, alice, bob };
+  return { reputation, owner, verifier, alice, bob };
 }
 
 describe("Reputation", function () {
@@ -51,13 +41,11 @@ describe("Reputation", function () {
       .withArgs(aliceAddr);
   });
 
-  it("only the configured verifier can reward attendance", async function () {
+  it("can only be rewarded by the configured verifier", async function () {
     const { reputation, owner, alice } = await deployFixture();
 
     // Default caller is the owner (signer 0); no verifier has been set.
-    await expect(
-      reputation.rewardAttendance(await alice.getAddress(), 1n),
-    )
+    await expect(reputation.rewardAttendance(await alice.getAddress(), 1n))
       .to.be.revertedWithCustomError(reputation, "NotAttendanceVerifier")
       .withArgs(await owner.getAddress());
   });
@@ -110,7 +98,7 @@ describe("Reputation", function () {
       .withArgs(aliceAddr, 1n, REWARD, INIT + REWARD);
   });
 
-  it("computes average and recommended create requirement", async function () {
+  it("exposes average reputation for the off-chain threshold service", async function () {
     const { reputation, verifier, alice, bob } = await deployFixture();
 
     await reputation.setAttendanceVerifier(await verifier.getAddress());
@@ -120,34 +108,13 @@ describe("Reputation", function () {
       .connect(verifier)
       .rewardAttendance(await alice.getAddress(), 1n); // alice -> 150
 
-    // total = 250, users = 2, average = 125, recommended = 125 * 3 = 375
+    // total = 250, users = 2, average = 125
     expect(await reputation.averageReputation()).to.equal(125n);
-    expect(await reputation.recommendedCreateRequirement()).to.equal(375n);
-  });
 
-  it("reverts sync when Movement is unset", async function () {
-    const { reputation } = await deployFixture();
-
-    await expect(
-      reputation.syncCreateRequirement(),
-    ).to.be.revertedWithCustomError(reputation, "MovementNotSet");
-  });
-
-  it("pushes the recommended requirement to Movement", async function () {
-    const { reputation, movement, verifier, alice, bob } = await deployFixture();
-
-    await reputation.setAttendanceVerifier(await verifier.getAddress());
-    await reputation.setMovement(await movement.getAddress());
-    await reputation.connect(alice).register();
-    await reputation.connect(bob).register();
-    await reputation
-      .connect(verifier)
-      .rewardAttendance(await alice.getAddress(), 1n);
-
-    await reputation.syncCreateRequirement();
-
-    expect(await movement.createRequirementCalled()).to.equal(true);
-    expect(await movement.lastCreateRequirement()).to.equal(375n);
+    const [total, users, average] = await reputation.getReputationStats();
+    expect(total).to.equal(250n);
+    expect(users).to.equal(2n);
+    expect(average).to.equal(125n);
   });
 
   it("only the owner can set the verifier", async function () {
@@ -160,15 +127,11 @@ describe("Reputation", function () {
       .withArgs(await alice.getAddress());
   });
 
-  it("rejects the zero address for verifier and movement", async function () {
+  it("rejects the zero address for the verifier", async function () {
     const { reputation } = await deployFixture();
 
     await expect(
       reputation.setAttendanceVerifier(ZeroAddress),
-    ).to.be.revertedWithCustomError(reputation, "ZeroAddress");
-
-    await expect(
-      reputation.setMovement(ZeroAddress),
     ).to.be.revertedWithCustomError(reputation, "ZeroAddress");
   });
 
