@@ -31,7 +31,7 @@ router = APIRouter(
 
 # User Authentication
 @router.post("/login", response_model = UserResponse)
-def wallet_login(
+def user_login(
     payload : LoginPayload,
     db : Session = Depends(get_db),
     w3 : Web3 = Depends(get_web3),
@@ -56,7 +56,7 @@ def wallet_login(
         encoded_message = encode_defunct(text=payload.message)
 
         # Get address of the account that signed that dummy message
-        address_recovered = w3.eth.recover_message(
+        address_recovered = w3.eth.account.recover_message(
             encoded_message,
             signature=payload.signature
         )
@@ -99,67 +99,6 @@ def wallet_login(
     db.refresh(user)
 
     return user
-
-@router.get("/current", status_code=200, response_model=UserResponse)
-def current_user(
-    address: str = Header(...),
-    signature : str = Header(...),
-    db: Session = Depends(get_db),
-    w3: Web3 = Depends(get_web3),
-):  
-    '''
-        Get current user based from blockchain address
-        Endpoint : /users/{address}
-    '''
-
-    # Address Validation
-    if not w3.is_address(address):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid Address Format"
-        )
-
-    # Get user checksum wallet address from on chain
-    checksum_address = w3.to_checksum_address(address)
-
-    # Authenticate Address by sending simple message
-    dummy_message = "Sign this message to authenticate"
-
-    try:
-        encoded_message = encode_defunct(text=dummy_message)
-        address_recovered = w3.eth.recover_message(
-            encoded_message,
-            signature=signature
-        )
-    except:
-        raise HTTPException(
-            status_code=400, 
-            detail="Invalid Signature"
-        )
-
-    # Check if address recovered the same as the sending address
-    if address_recovered != checksum_address:   
-        raise HTTPException(
-            status_code=401,
-            detail="Signature Verification Failed"
-        )
-
-    # Retrieve user data from database
-    statement = select(User).where(User.address == address)
-    user = db.scalar_one_or_none(statement)
-
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found in database"
-        )
-
-    return UserResponse(
-        id=user.id,
-        address=user.address,
-        reputation=user.reputation
-    )
-
 
 @router.post("/register", status_code=201, response_model=UserResponse)
 def register_user(
@@ -211,4 +150,65 @@ def register_user(
     return UserResponse(
         address=user_payload.address,
         reputation=initial_reputation
+    )
+
+
+@router.get("/current", status_code=200, response_model=UserResponse)
+def current_user(
+    address: str = Header(...),
+    signature : str = Header(...),
+    db: Session = Depends(get_db),
+    w3: Web3 = Depends(get_web3),
+):  
+    '''
+        Get current user based from blockchain address
+        Endpoint : /users/{address}
+    '''
+
+    # Address Validation
+    if not w3.is_address(address):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid Address Format"
+        )
+
+    # Get user checksum wallet address from on chain
+    checksum_address = w3.to_checksum_address(address)
+
+    # Authenticate Address by sending simple message
+    dummy_message = "Sign this message to authenticate"
+
+    try:
+        encoded_message = encode_defunct(text=dummy_message)
+        address_recovered = w3.eth.account.recover_message(
+            encoded_message,
+            signature=signature
+        )
+    except:
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid Signature"
+        )
+
+    # Check if address recovered the same as the sending address
+    if address_recovered != checksum_address:   
+        raise HTTPException(
+            status_code=401,
+            detail="Signature Verification Failed"
+        )
+
+    # Retrieve user data from database
+    statement = select(User).where(User.address == address)
+    user = db.scalar_one_or_none(statement)
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found in database"
+        )
+
+    return UserResponse(
+        id=user.id,
+        address=user.address,
+        reputation=user.reputation
     )

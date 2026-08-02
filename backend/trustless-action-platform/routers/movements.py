@@ -20,7 +20,9 @@ def movement_item(session: Movement) -> MovementResponse:
         organizer=session.organizer,
         title=session.title,
         due=session.due,
-        status=session.status
+        status=session.status,
+        onchain_id=session.onchain_id,
+        ipfs_id=session.ipfs_id
     )
 
 router = APIRouter(
