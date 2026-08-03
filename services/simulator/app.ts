@@ -8,9 +8,8 @@ import {
   signAttendance,
   sortHandshakeProofs,
 } from "../../shared/attendance.js";
+import { asyncRoute, createErrorHandler, sendJson } from "../../shared/http.js";
 import { signMutualHandshake } from "./handshake/index.js";
-import { asyncRoute, sendJson } from "./helpers/index.js";
-import { errorHandler } from "./middleware/index.js";
 import type { SimulatorRuntime } from "./runtime/index.js";
 import {
   parse,
@@ -143,7 +142,7 @@ export function createSimulatorApp(
     }),
   );
 
-  app.use(errorHandler);
+  app.use(createErrorHandler("Unknown simulator error"));
 
   return app;
 }
