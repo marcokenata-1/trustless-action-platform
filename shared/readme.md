@@ -10,3 +10,7 @@ peer quorum can change without altering the Attendance EIP-712 schema.
 
 `http.ts` holds shared Express helpers (`asyncRoute`, `sendJson`,
 `createErrorHandler`) used by both HTTP services.
+
+`schema.ts` holds shared request-validation helpers 
+
+`parser.ts` holds shared environment parsers

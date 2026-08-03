@@ -132,7 +132,7 @@ contract AttendanceVerifier is EIP712 {
 
     reputation.rewardAttendance(participant, movementId);
 
-    // TODO: @stephen to be listened and processed by indexer
+    // Indexed off-chain by services/indexer
     emit AttendanceVerified(
       movementId,
       participant,
