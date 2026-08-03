@@ -56,7 +56,7 @@ export interface AttendanceListResponse {
 export type { SyncResult };
 
 export interface DeployedAddresses {
-  "AttendanceDemo#MovementMock": string;
+  "AttendanceDemo#Movement": string;
   "AttendanceDemo#Reputation": string;
   "AttendanceDemo#AttendanceVerifier": string;
 }

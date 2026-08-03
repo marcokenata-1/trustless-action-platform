@@ -46,6 +46,7 @@ contract Movement {
         reputation = IReputation(reputationAddress);
         requirementUpdater = requirementUpdaterAddress;
         createRequirement = initialCreateRequirement;
+        nextMovementId = 1;
     }
 
     function createMovement(uint256 threshold, uint256 deadlineDays, string calldata cid) external returns (uint256) {

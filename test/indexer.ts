@@ -15,40 +15,30 @@ import { createIndexerApp } from "../services/indexer/app.js";
 import { AttendanceListener } from "../services/indexer/listener/index.js";
 import { IndexerRpc } from "../services/indexer/runtime/index.js";
 import { AttendanceStore } from "../services/indexer/store/index.js";
+import {
+  createMovementWithCommits,
+  deployAttendanceContracts,
+} from "./helpers/deployAttendanceContracts.js";
 
 const { ethers } = await network.create();
 
-const MOVEMENT_ID = 1n;
 const REQUIRED_PEERS = 3;
-const REPUTATION_INITIAL_GRANT = 100n;
-const REPUTATION_ATTENDANCE_REWARD = 50n;
 
 describe("attendance indexer", function () {
   async function deployFixture() {
     const [participant, ...otherSigners] = await ethers.getSigners();
     const peers = otherSigners.slice(0, REQUIRED_PEERS);
-    const movement = await ethers.deployContract("MovementMock");
-    const reputation = await ethers.deployContract("Reputation", [
-      REPUTATION_INITIAL_GRANT,
-      REPUTATION_ATTENDANCE_REWARD,
-    ]);
-    const verifier = await ethers.deployContract("AttendanceVerifier", [
-      await movement.getAddress(),
-      await reputation.getAddress(),
-      REQUIRED_PEERS,
-    ]);
-
-    await reputation.setAttendanceVerifier(await verifier.getAddress());
-
-    await movement.setActive(MOVEMENT_ID, true);
-    await movement.setCommitted(
-      MOVEMENT_ID,
-      await participant.getAddress(),
-      true,
+    const { movement, verifier } = await deployAttendanceContracts(
+      ethers,
+      REQUIRED_PEERS
     );
-    for (const peer of peers) {
-      await movement.setCommitted(MOVEMENT_ID, await peer.getAddress(), true);
-    }
+
+    const movementId = await createMovementWithCommits(
+      movement,
+      participant,
+      [participant, ...peers],
+      BigInt(1 + peers.length)
+    );
 
     const { chainId } = await ethers.provider.getNetwork();
     const verifierAddress = await verifier.getAddress();
@@ -56,18 +46,14 @@ describe("attendance indexer", function () {
 
     const proofs: HandshakeProof[] = [];
     for (const peer of peers) {
-      proofs.push(await signProof(participant, peer, domain, MOVEMENT_ID));
+      proofs.push(await signProof(participant, peer, domain, movementId));
     }
     const sortedProofs = sortHandshakeProofs(proofs);
-    const attendance = buildAttendance(
-      domain,
-      sortedProofs,
-      REQUIRED_PEERS,
-    );
+    const attendance = buildAttendance(domain, sortedProofs, REQUIRED_PEERS);
     const participantSignature = await signAttendance(
       participant,
       domain,
-      attendance,
+      attendance
     );
 
     const store = new AttendanceStore(":memory:");
@@ -81,6 +67,7 @@ describe("attendance indexer", function () {
       listener,
       participant,
       verifier,
+      movementId,
       sortedProofs,
       attendance,
       participantSignature,
@@ -94,10 +81,10 @@ describe("attendance indexer", function () {
     const submission = await fixture.verifier
       .connect(fixture.participant)
       .submitAttendance(
-        MOVEMENT_ID,
+        fixture.movementId,
         participantAddress,
         fixture.sortedProofs.map(toContractProof),
-        fixture.participantSignature,
+        fixture.participantSignature
       );
     await submission.wait();
 
@@ -107,15 +94,15 @@ describe("attendance indexer", function () {
 
     const byMovement = await request(fixture.app)
       .get("/attendance")
-      .query({ movementId: MOVEMENT_ID.toString() })
+      .query({ movementId: fixture.movementId.toString() })
       .expect(200);
 
     expect(byMovement.body.events).to.have.length(1);
     expect(byMovement.body.events[0].participant).to.equal(
-      getAddress(participantAddress),
+      getAddress(participantAddress)
     );
     expect(byMovement.body.events[0].proofsHash).to.equal(
-      fixture.attendance.proofsHash,
+      fixture.attendance.proofsHash
     );
     expect(byMovement.body.events[0].proofCount).to.equal(3);
     expect(byMovement.body.events[0].peers).to.have.length(3);
@@ -123,7 +110,7 @@ describe("attendance indexer", function () {
     const filtered = await request(fixture.app)
       .get("/attendance")
       .query({
-        movementId: MOVEMENT_ID.toString(),
+        movementId: fixture.movementId.toString(),
         participant: participantAddress,
       })
       .expect(200);
@@ -145,7 +132,7 @@ describe("attendance indexer", function () {
 
     const response = await request(fixture.app)
       .get("/attendance")
-      .query({ movementId: "1" })
+      .query({ movementId: fixture.movementId.toString() })
       .expect(200);
 
     expect(response.body.events).to.deep.equal([]);
