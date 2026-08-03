@@ -1,5 +1,16 @@
-export { AttendanceStore } from "./attendanceStore.js";
+export { IndexerStore, AttendanceStore } from "./indexerStore.js";
 export type {
   AttendanceEventRecord,
   StoredAttendanceEvent,
-} from "./attendanceStore.js";
+  ChainMovementEvent,
+  MovementEventType,
+  MovementStatus,
+  StoredMovement,
+  StoredMovementCommit,
+  StoredMovementEvent,
+  StoredCreateRequirementUpdate,
+  ChainReputationEvent,
+  ReputationEventType,
+  StoredReputationEvent,
+  ReputationEventFilter,
+} from "./indexerStore.js";
