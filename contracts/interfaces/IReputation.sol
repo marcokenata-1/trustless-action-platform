@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.35;
 
 /// @title IReputation
 /// @notice Canonical interface for the Reputation contract.

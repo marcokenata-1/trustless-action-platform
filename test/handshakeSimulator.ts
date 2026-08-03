@@ -12,42 +12,36 @@ import type {
   SubmissionResult,
 } from "../services/simulator/runtime/index.js";
 import { HandshakeStore } from "../services/simulator/store/index.js";
+import {
+  createMovementWithCommits,
+  deployAttendanceContracts,
+  REPUTATION_ATTENDANCE_REWARD,
+  REPUTATION_INITIAL_GRANT,
+} from "./helpers/deployAttendanceContracts.js";
 
 const { ethers } = await network.create();
 
 describe("handshake simulator API", function () {
   async function deployFixture() {
     const [participant, peerA, peerB, peerC] = await ethers.getSigners();
-    const signers = [participant, peerA, peerB, peerC];
-    const movement = await ethers.deployContract("MovementMock");
-    const reputation = await ethers.deployContract("ReputationMock");
-    const verifier = await ethers.deployContract("AttendanceVerifier", [
-      await movement.getAddress(),
-      await reputation.getAddress(),
-      3,
-    ]);
-    const movementId = 1n;
+    const peers = [peerA, peerB, peerC];
+    const { movement, reputation, verifier } = await deployAttendanceContracts(
+      ethers,
+      3
+    );
 
-    await movement.setActive(movementId, true);
-    for (const signer of signers.slice(0, 4)) {
-      await movement.setCommitted(
-        movementId,
-        await signer.getAddress(),
-        true,
-      );
-    }
+    const movementId = await createMovementWithCommits(
+      movement,
+      participant,
+      [participant, ...peers],
+      4n
+    );
 
     const { chainId } = await ethers.provider.getNetwork();
-    const domain = attendanceDomain(
-      chainId,
-      await verifier.getAddress(),
-    );
+    const domain = attendanceDomain(chainId, await verifier.getAddress());
     const signersByAddress = new Map<string, Signer>();
-    for (const signer of signers) {
-      signersByAddress.set(
-        getAddress(await signer.getAddress()),
-        signer,
-      );
+    for (const signer of [participant, ...peers]) {
+      signersByAddress.set(getAddress(await signer.getAddress()), signer);
     }
 
     const runtime: SimulatorRuntime = {
@@ -71,22 +65,20 @@ describe("handshake simulator API", function () {
         submittedMovementId: bigint,
         submittedParticipant: string,
         proofs: readonly HandshakeProof[],
-        participantSignature: string,
+        participantSignature: string
       ): Promise<SubmissionResult> {
         const signer = await this.getSigner(submittedParticipant);
-        const transaction = await verifier
-          .connect(signer)
-          .submitAttendance(
-            submittedMovementId,
-            submittedParticipant,
-            proofs.map((proof) => ({
-              peer: proof.peer,
-              nonce: proof.nonce,
-              timestamp: proof.timestamp,
-              peerSignature: proof.peerSignature,
-            })),
-            participantSignature,
-          );
+        const transaction = await verifier.connect(signer).submitAttendance(
+          submittedMovementId,
+          submittedParticipant,
+          proofs.map((proof) => ({
+            peer: proof.peer,
+            nonce: proof.nonce,
+            timestamp: proof.timestamp,
+            peerSignature: proof.peerSignature,
+          })),
+          participantSignature
+        );
         const receipt = await transaction.wait();
         return {
           transactionHash: transaction.hash,
@@ -99,14 +91,14 @@ describe("handshake simulator API", function () {
     return {
       app: createSimulatorApp(runtime, handshakeStore),
       participant,
-      peers: [peerA, peerB, peerC],
+      peers,
       movementId,
       reputation,
     };
   }
 
   async function createProofs(
-    fixture: Awaited<ReturnType<typeof deployFixture>>,
+    fixture: Awaited<ReturnType<typeof deployFixture>>
   ): Promise<Record<string, unknown>[]> {
     const proofs: Record<string, unknown>[] = [];
     const participantAddress = await fixture.participant.getAddress();
@@ -123,7 +115,7 @@ describe("handshake simulator API", function () {
         .expect(200);
       const participantProof = response.body.proofs.find(
         (proof: { participant: string }) =>
-          proof.participant === participantAddress,
+          proof.participant === participantAddress
       );
       expect(participantProof).not.to.equal(undefined);
       proofs.push(participantProof);
@@ -142,7 +134,7 @@ describe("handshake simulator API", function () {
       .expect(200);
 
     const peerAddresses = attestation.body.proofs.map(
-      (proof: { peer: string }) => BigInt(proof.peer),
+      (proof: { peer: string }) => BigInt(proof.peer)
     );
     expect(peerAddresses[0]).to.be.lessThan(peerAddresses[1]);
     expect(peerAddresses[1]).to.be.lessThan(peerAddresses[2]);
@@ -157,12 +149,17 @@ describe("handshake simulator API", function () {
       .expect(200);
 
     expect(submission.body.transactionHash).to.match(/^0x[0-9a-f]{64}$/);
-    expect(submission.body.movementId).to.equal("1");
+    expect(submission.body.movementId).to.equal(fixture.movementId.toString());
+    const participantAddress = await fixture.participant.getAddress();
     expect(
-      await fixture.reputation.attendanceRewards(
-        await fixture.participant.getAddress(),
-      ),
-    ).to.equal(1n);
+      await fixture.reputation.attendanceRewarded(
+        fixture.movementId,
+        participantAddress
+      )
+    ).to.equal(true);
+    expect(await fixture.reputation.balanceOf(participantAddress)).to.equal(
+      REPUTATION_INITIAL_GRANT + REPUTATION_ATTENDANCE_REWARD
+    );
   });
 
   it("rejects a tampered peer proof before submission", async function () {
@@ -178,7 +175,7 @@ describe("handshake simulator API", function () {
       .send({ proofs })
       .expect(400);
 
-    expect(response.body.error).to.include("Invalid peer signature");
+    expect(response.body.error).to.match(/Invalid peer signature/);
   });
 
   it("creates one mutual session for concurrent reversed requests", async function () {
@@ -201,16 +198,15 @@ describe("handshake simulator API", function () {
 
     expect(first.status).to.equal(200);
     expect(second.status).to.equal(200);
-    expect([first.body.created, second.body.created].sort()).to.deep.equal([
-      false,
+    expect([first.body.created, second.body.created]).to.have.members([
       true,
+      false,
     ]);
     expect(first.body.proofs).to.deep.equal(second.body.proofs);
-    expect(first.body.proofs).to.have.length(2);
     expect(
-      first.body.proofs.map(
-        (proof: { participant: string }) => proof.participant,
-      ),
+      [first.body.partyA, first.body.partyB].map((address: string) =>
+        getAddress(address)
+      )
     ).to.have.members([partyA, partyB]);
   });
 });

@@ -1,4 +1,10 @@
-import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type {
+  ErrorRequestHandler,
+  NextFunction,
+  Request,
+  RequestHandler,
+  Response,
+} from "express";
 
 type AsyncRoute = (request: Request, response: Response) => Promise<void>;
 
@@ -16,4 +22,14 @@ export function sendJson(response: Response, value: unknown): void {
         typeof item === "bigint" ? item.toString() : item,
       ),
     );
+}
+
+export function createErrorHandler(
+  fallbackMessage = "Unknown request error",
+): ErrorRequestHandler {
+  return (error, _request, response, _next) => {
+    const message =
+      error instanceof Error ? error.message : fallbackMessage;
+    response.status(400).json({ error: message });
+  };
 }

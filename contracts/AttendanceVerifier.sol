@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.35;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
@@ -132,7 +132,7 @@ contract AttendanceVerifier is EIP712 {
 
     reputation.rewardAttendance(participant, movementId);
 
-    // TODO: @stephen to be listened and processed by indexer
+    // Indexed off-chain by services/indexer
     emit AttendanceVerified(
       movementId,
       participant,

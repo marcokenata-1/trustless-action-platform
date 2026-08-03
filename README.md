@@ -13,7 +13,27 @@ npm run compile
 npm run typecheck
 npm test
 
-## Running local
+## One-command local demo
+
+Requires ports `8545`, `3001`, and `3002` free (stop any existing Hardhat node /
+simulator / indexer first):
+
+```shell
+npm run demo:e2e
+# optional: show Hardhat / simulator / indexer process logs
+VERBOSE=1 npm run demo:e2e
+# or
+npm run demo:e2e -- --verbose
+```
+
+This compiles contracts, starts Hardhat node, deploys `AttendanceDemo`, starts
+simulator + indexer, runs handshake + attest + submit + index sync, then shuts
+everything down.
+
+If `hardhat node` fails with `Failed to parse build info: missing field contracts`,
+run `npx hardhat clean && npx hardhat compile` once, then retry.
+
+## Running local (manual)
 
 ## Terminal 1 - Run a local blockchain node using hardhat
 
@@ -43,3 +63,21 @@ node --import tsx --env-file=services/simulator/.env services/simulator/server.t
 
 3. Let A submit his attedance proof.
    curl -s http://127.0.0.1:3001/submit -H 'content-type: application/json' -d '{YOUR_PAYLOAD}'
+
+
+## Terminal 5 - Run indexer (both attendance and movement)
+
+```shell
+cp services/indexer/.env.example services/indexer/.env
+
+# set ATTENDANCE_VERIFIER_ADDRESS, MOVEMENT_ADDRESS, and REPUTATION_ADDRESS from ignition
+node --import tsx --env-file=services/indexer/.env services/indexer/server.ts
+```
+
+After a successful `/submit`, sync (automatic poll or `POST /sync`) then query:
+
+```shell
+curl -s 'http://127.0.0.1:3002/attendance?movementId=1'
+curl -s 'http://127.0.0.1:3002/movements/1'
+curl -s 'http://127.0.0.1:3002/reputation-events?movementId=1'
+```

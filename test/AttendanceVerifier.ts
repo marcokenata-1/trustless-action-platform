@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import { ZeroAddress } from "ethers";
-import type { Signer, TypedDataDomain } from "ethers";
 import { network } from "hardhat";
 
 import {
@@ -9,7 +8,6 @@ import {
   buildAttendance,
   computeHandshakeDigest,
   computeProofsHash,
-  createHandshake,
   signAttendance,
   signHandshake,
   sortHandshakeProofs,
@@ -19,65 +17,28 @@ import type {
   Handshake,
   HandshakeProof,
 } from "../shared/attendance.js";
+import { signProof, toContractProof } from "../shared/mapper.js";
+import {
+  CREATE_REQUIREMENT,
+  createMovementWithCommits,
+  deployAttendanceContracts,
+  REPUTATION_ATTENDANCE_REWARD,
+  REPUTATION_INITIAL_GRANT,
+} from "./helpers/deployAttendanceContracts.js";
 
 const { ethers } = await network.create();
 
-const MOVEMENT_ID = 1n;
 const REQUIRED_PEERS = 3;
 
-function toContractProof(proof: HandshakeProof) {
-  return {
-    peer: proof.peer,
-    nonce: proof.nonce,
-    timestamp: proof.timestamp,
-    peerSignature: proof.peerSignature,
-  };
-}
-
-async function signProof(
-  participant: Signer,
-  peer: Signer,
-  domain: TypedDataDomain,
-  overrides: Partial<Handshake> = {},
-): Promise<HandshakeProof> {
-  const handshake: Handshake = {
-    ...createHandshake(
-      MOVEMENT_ID,
-      await participant.getAddress(),
-      await peer.getAddress(),
-      1_700_000_000n,
-    ),
-    ...overrides,
-  };
-  const peerSignature = await signHandshake(peer, domain, handshake);
-  return { ...handshake, peerSignature };
-}
-
-async function deployFixture(peerCount = REQUIRED_PEERS) {
+async function deployFixture(requiredPeerCount = REQUIRED_PEERS) {
   const [participant, ...otherSigners] = await ethers.getSigners();
-  const movement = await ethers.deployContract("MovementMock");
-  const reputation = await ethers.deployContract("ReputationMock");
-  const verifier = await ethers.deployContract("AttendanceVerifier", [
-    await movement.getAddress(),
-    await reputation.getAddress(),
-    peerCount,
-  ]);
-
-  await Promise.all([
-    movement.waitForDeployment(),
-    reputation.waitForDeployment(),
-    verifier.waitForDeployment(),
-  ]);
+  const { movement, reputation, verifier } = await deployAttendanceContracts(
+    ethers,
+    requiredPeerCount
+  );
 
   const { chainId } = await ethers.provider.getNetwork();
   const domain = attendanceDomain(chainId, await verifier.getAddress());
-
-  await movement.setActive(MOVEMENT_ID, true);
-  await movement.setCommitted(
-    MOVEMENT_ID,
-    await participant.getAddress(),
-    true,
-  );
 
   return {
     participant,
@@ -91,39 +52,43 @@ async function deployFixture(peerCount = REQUIRED_PEERS) {
 
 async function prepareClaim(
   fixture: Awaited<ReturnType<typeof deployFixture>>,
-  peerCount = REQUIRED_PEERS,
+  peerCount = REQUIRED_PEERS
 ) {
   const selectedPeers = fixture.peers.slice(0, peerCount);
-  const proofs: HandshakeProof[] = [];
+  const committers = [fixture.participant, ...selectedPeers];
+  const movementId = await createMovementWithCommits(
+    fixture.movement,
+    fixture.participant,
+    committers,
+    BigInt(committers.length)
+  );
 
+  const proofs: HandshakeProof[] = [];
   for (const peer of selectedPeers) {
-    await fixture.movement.setCommitted(
-      MOVEMENT_ID,
-      await peer.getAddress(),
-      true,
+    proofs.push(
+      await signProof(fixture.participant, peer, fixture.domain, movementId)
     );
-    proofs.push(await signProof(fixture.participant, peer, fixture.domain));
   }
 
   const sortedProofs = sortHandshakeProofs(proofs);
   const attendance = buildAttendance(
     fixture.domain,
     sortedProofs,
-    REQUIRED_PEERS,
+    REQUIRED_PEERS
   );
   const participantSignature = await signAttendance(
     fixture.participant,
     fixture.domain,
-    attendance,
+    attendance
   );
 
-  return { sortedProofs, attendance, participantSignature };
+  return { movementId, sortedProofs, attendance, participantSignature };
 }
 
 describe("AttendanceVerifier", function () {
   it("accepts a three-peer claim and rewards the participant", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs, attendance, participantSignature } =
+    const { movementId, sortedProofs, attendance, participantSignature } =
       await prepareClaim(fixture);
     const participantAddress = await fixture.participant.getAddress();
     const peers = sortedProofs.map((proof) => proof.peer);
@@ -131,131 +96,210 @@ describe("AttendanceVerifier", function () {
     const transaction = fixture.verifier
       .connect(fixture.participant)
       .submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         participantAddress,
         sortedProofs.map(toContractProof),
-        participantSignature,
+        participantSignature
       );
 
     await expect(transaction)
       .to.emit(fixture.verifier, "AttendanceVerified")
       .withArgs(
-        MOVEMENT_ID,
+        movementId,
         participantAddress,
         attendance.proofsHash,
         3n,
-        peers,
+        peers
       );
 
     expect(
-      await fixture.verifier.attendanceVerified(
-        MOVEMENT_ID,
-        participantAddress,
-      ),
+      await fixture.verifier.attendanceVerified(movementId, participantAddress)
     ).to.equal(true);
     expect(
-      await fixture.reputation.attendanceRewards(participantAddress),
-    ).to.equal(1n);
+      await fixture.reputation.attendanceRewarded(
+        movementId,
+        participantAddress
+      )
+    ).to.equal(true);
+    expect(await fixture.reputation.balanceOf(participantAddress)).to.equal(
+      REPUTATION_INITIAL_GRANT + REPUTATION_ATTENDANCE_REWARD
+    );
     for (const proof of sortedProofs) {
       expect(
         await fixture.verifier.verifiedHandshakeDigests(
-          computeHandshakeDigest(fixture.domain, proof),
-        ),
+          computeHandshakeDigest(fixture.domain, proof)
+        )
       ).to.equal(true);
     }
   });
 
   it("accepts more proofs than the minimum quorum", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs, participantSignature } = await prepareClaim(
-      fixture,
-      4,
-    );
+    const { movementId, sortedProofs, participantSignature } =
+      await prepareClaim(fixture, 4);
 
     await fixture.verifier.submitAttendance(
-      MOVEMENT_ID,
+      movementId,
       await fixture.participant.getAddress(),
       sortedProofs.map(toContractProof),
-      participantSignature,
+      participantSignature
     );
 
     expect(
-      await fixture.reputation.attendanceRewards(
-        await fixture.participant.getAddress(),
-      ),
-    ).to.equal(1n);
+      await fixture.reputation.attendanceRewarded(
+        movementId,
+        await fixture.participant.getAddress()
+      )
+    ).to.equal(true);
   });
 
   it("rejects an inactive movement", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs, participantSignature } = await prepareClaim(fixture);
-    await fixture.movement.setActive(MOVEMENT_ID, false);
+    const selectedPeers = fixture.peers.slice(0, REQUIRED_PEERS);
+    // High threshold keeps status Open (not Activated).
+    const movementId = await createMovementWithCommits(
+      fixture.movement,
+      fixture.participant,
+      [fixture.participant, ...selectedPeers],
+      100n
+    );
+
+    const proofs: HandshakeProof[] = [];
+    for (const peer of selectedPeers) {
+      proofs.push(
+        await signProof(fixture.participant, peer, fixture.domain, movementId)
+      );
+    }
+    const sortedProofs = sortHandshakeProofs(proofs);
+    const attendance = buildAttendance(
+      fixture.domain,
+      sortedProofs,
+      REQUIRED_PEERS
+    );
+    const participantSignature = await signAttendance(
+      fixture.participant,
+      fixture.domain,
+      attendance
+    );
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         await fixture.participant.getAddress(),
         sortedProofs.map(toContractProof),
-        participantSignature,
-      ),
+        participantSignature
+      )
     )
       .to.be.revertedWithCustomError(fixture.verifier, "MovementNotActive")
-      .withArgs(MOVEMENT_ID);
+      .withArgs(movementId);
   });
 
   it("rejects a participant who did not commit", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs, participantSignature } = await prepareClaim(fixture);
+    const selectedPeers = fixture.peers.slice(0, REQUIRED_PEERS);
+    // Activate with peers only; participant never commits.
+    const movementId = await createMovementWithCommits(
+      fixture.movement,
+      fixture.participant,
+      selectedPeers,
+      BigInt(selectedPeers.length)
+    );
+
+    const proofs: HandshakeProof[] = [];
+    for (const peer of selectedPeers) {
+      proofs.push(
+        await signProof(fixture.participant, peer, fixture.domain, movementId)
+      );
+    }
+    const sortedProofs = sortHandshakeProofs(proofs);
+    const attendance = buildAttendance(
+      fixture.domain,
+      sortedProofs,
+      REQUIRED_PEERS
+    );
+    const participantSignature = await signAttendance(
+      fixture.participant,
+      fixture.domain,
+      attendance
+    );
     const participantAddress = await fixture.participant.getAddress();
-    await fixture.movement.setCommitted(MOVEMENT_ID, participantAddress, false);
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         participantAddress,
         sortedProofs.map(toContractProof),
-        participantSignature,
-      ),
+        participantSignature
+      )
     ).to.be.revertedWithCustomError(
       fixture.verifier,
-      "ParticipantNotCommitted",
+      "ParticipantNotCommitted"
     );
   });
 
   it("rejects a non-committed peer", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs, participantSignature } = await prepareClaim(fixture);
-    const uncommittedPeer = sortedProofs[1].peer;
-    await fixture.movement.setCommitted(MOVEMENT_ID, uncommittedPeer, false);
+    const selectedPeers = fixture.peers.slice(0, REQUIRED_PEERS);
+    const committedPeers = selectedPeers.slice(0, 2);
+    const uncommittedPeerSigner = selectedPeers[2];
+    const movementId = await createMovementWithCommits(
+      fixture.movement,
+      fixture.participant,
+      [fixture.participant, ...committedPeers],
+      3n
+    );
+
+    const proofs: HandshakeProof[] = [];
+    for (const peer of selectedPeers) {
+      proofs.push(
+        await signProof(fixture.participant, peer, fixture.domain, movementId)
+      );
+    }
+    const sortedProofs = sortHandshakeProofs(proofs);
+    const attendance = buildAttendance(
+      fixture.domain,
+      sortedProofs,
+      REQUIRED_PEERS
+    );
+    const participantSignature = await signAttendance(
+      fixture.participant,
+      fixture.domain,
+      attendance
+    );
+    const uncommittedPeer = await uncommittedPeerSigner.getAddress();
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         await fixture.participant.getAddress(),
         sortedProofs.map(toContractProof),
-        participantSignature,
-      ),
+        participantSignature
+      )
     )
       .to.be.revertedWithCustomError(fixture.verifier, "PeerNotCommitted")
-      .withArgs(MOVEMENT_ID, uncommittedPeer);
+      .withArgs(movementId, uncommittedPeer);
   });
 
   it("rejects fewer proofs than the configured quorum", async function () {
     const fixture = await deployFixture();
-    const proofs: HandshakeProof[] = [];
+    const selectedPeers = fixture.peers.slice(0, 2);
+    const movementId = await createMovementWithCommits(
+      fixture.movement,
+      fixture.participant,
+      [fixture.participant, ...selectedPeers],
+      3n
+    );
 
-    for (const peer of fixture.peers.slice(0, 2)) {
-      await fixture.movement.setCommitted(
-        MOVEMENT_ID,
-        await peer.getAddress(),
-        true,
+    const proofs: HandshakeProof[] = [];
+    for (const peer of selectedPeers) {
+      proofs.push(
+        await signProof(fixture.participant, peer, fixture.domain, movementId)
       );
-      proofs.push(await signProof(fixture.participant, peer, fixture.domain));
     }
 
     const sortedProofs = sortHandshakeProofs(proofs);
     const attendance: Attendance = {
-      movementId: MOVEMENT_ID,
+      movementId,
       participant: await fixture.participant.getAddress(),
       requiredPeerCount: 3n,
       proofsHash: computeProofsHash(fixture.domain, sortedProofs),
@@ -263,16 +307,16 @@ describe("AttendanceVerifier", function () {
     const participantSignature = await signAttendance(
       fixture.participant,
       fixture.domain,
-      attendance,
+      attendance
     );
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         attendance.participant,
         sortedProofs.map(toContractProof),
-        participantSignature,
-      ),
+        participantSignature
+      )
     )
       .to.be.revertedWithCustomError(fixture.verifier, "NotEnoughProofs")
       .withArgs(3n, 2n);
@@ -280,10 +324,10 @@ describe("AttendanceVerifier", function () {
 
   it("rejects duplicate or unsorted peers", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs } = await prepareClaim(fixture);
+    const { movementId, sortedProofs } = await prepareClaim(fixture);
     const duplicateProofs = [sortedProofs[0], sortedProofs[0], sortedProofs[1]];
     const attendance: Attendance = {
-      movementId: MOVEMENT_ID,
+      movementId,
       participant: await fixture.participant.getAddress(),
       requiredPeerCount: 3n,
       proofsHash: computeProofsHash(fixture.domain, duplicateProofs),
@@ -291,25 +335,25 @@ describe("AttendanceVerifier", function () {
     const participantSignature = await signAttendance(
       fixture.participant,
       fixture.domain,
-      attendance,
+      attendance
     );
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         attendance.participant,
         duplicateProofs.map(toContractProof),
-        participantSignature,
-      ),
+        participantSignature
+      )
     ).to.be.revertedWithCustomError(fixture.verifier, "ProofsNotSorted");
   });
 
   it("rejects a self-handshake", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs } = await prepareClaim(fixture);
+    const { movementId, sortedProofs } = await prepareClaim(fixture);
     const participantAddress = await fixture.participant.getAddress();
     const selfHandshake: Handshake = {
-      movementId: MOVEMENT_ID,
+      movementId,
       participant: participantAddress,
       peer: participantAddress,
       nonce: sortedProofs[0].nonce,
@@ -320,7 +364,7 @@ describe("AttendanceVerifier", function () {
       peerSignature: await signHandshake(
         fixture.participant,
         fixture.domain,
-        selfHandshake,
+        selfHandshake
       ),
     };
     const proofs = sortHandshakeProofs([
@@ -329,7 +373,7 @@ describe("AttendanceVerifier", function () {
       sortedProofs[1],
     ]);
     const attendance: Attendance = {
-      movementId: MOVEMENT_ID,
+      movementId,
       participant: participantAddress,
       requiredPeerCount: 3n,
       proofsHash: computeProofsHash(fixture.domain, proofs),
@@ -337,16 +381,16 @@ describe("AttendanceVerifier", function () {
     const participantSignature = await signAttendance(
       fixture.participant,
       fixture.domain,
-      attendance,
+      attendance
     );
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         participantAddress,
         proofs.map(toContractProof),
-        participantSignature,
-      ),
+        participantSignature
+      )
     )
       .to.be.revertedWithCustomError(fixture.verifier, "InvalidPeer")
       .withArgs(participantAddress);
@@ -354,7 +398,7 @@ describe("AttendanceVerifier", function () {
 
   it("rejects a tampered peer proof", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs } = await prepareClaim(fixture);
+    const { movementId, sortedProofs } = await prepareClaim(fixture);
     sortedProofs[0] = {
       ...sortedProofs[0],
       nonce: ethers.id("tampered nonce"),
@@ -362,102 +406,115 @@ describe("AttendanceVerifier", function () {
     const attendance = buildAttendance(
       fixture.domain,
       sortedProofs,
-      REQUIRED_PEERS,
+      REQUIRED_PEERS
     );
     const participantSignature = await signAttendance(
       fixture.participant,
       fixture.domain,
-      attendance,
+      attendance
     );
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         attendance.participant,
         sortedProofs.map(toContractProof),
-        participantSignature,
-      ),
+        participantSignature
+      )
     ).to.be.revertedWithCustomError(fixture.verifier, "InvalidPeerSignature");
   });
 
   it("rejects a signature from someone other than the participant", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs, attendance } = await prepareClaim(fixture);
+    const { movementId, sortedProofs, attendance } = await prepareClaim(
+      fixture
+    );
     const wrongSignature = await fixture.peers[0].signTypedData(
       fixture.domain,
       ATTENDANCE_TYPES,
-      attendance,
+      attendance
     );
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         attendance.participant,
         sortedProofs.map(toContractProof),
-        wrongSignature,
-      ),
+        wrongSignature
+      )
     ).to.be.revertedWithCustomError(
       fixture.verifier,
-      "InvalidParticipantSignature",
+      "InvalidParticipantSignature"
     );
   });
 
   it("rejects replaying an accepted attendance claim", async function () {
     const fixture = await deployFixture();
-    const { sortedProofs, participantSignature } = await prepareClaim(fixture);
+    const { movementId, sortedProofs, participantSignature } =
+      await prepareClaim(fixture);
     const participantAddress = await fixture.participant.getAddress();
     const contractProofs = sortedProofs.map(toContractProof);
 
     await fixture.verifier.submitAttendance(
-      MOVEMENT_ID,
+      movementId,
       participantAddress,
       contractProofs,
-      participantSignature,
+      participantSignature
     );
 
     await expect(
       fixture.verifier.submitAttendance(
-        MOVEMENT_ID,
+        movementId,
         participantAddress,
         contractProofs,
-        participantSignature,
-      ),
+        participantSignature
+      )
     ).to.be.revertedWithCustomError(
       fixture.verifier,
-      "AttendanceAlreadyVerified",
+      "AttendanceAlreadyVerified"
     );
   });
 
   it("rejects a deployment quorum below three", async function () {
-    const movement = await ethers.deployContract("MovementMock");
-    const reputation = await ethers.deployContract("ReputationMock");
+    const reputation = await ethers.deployContract("Reputation", [
+      REPUTATION_INITIAL_GRANT,
+      REPUTATION_ATTENDANCE_REWARD,
+    ]);
+    const movement = await ethers.deployContract("Movement", [
+      await reputation.getAddress(),
+      await(await ethers.getSigners())[0].getAddress(),
+      CREATE_REQUIREMENT,
+    ]);
 
     await expect(
       ethers.deployContract("AttendanceVerifier", [
         await movement.getAddress(),
         await reputation.getAddress(),
         2,
-      ]),
+      ])
     )
       .to.be.revertedWithCustomError(
         await ethers.getContractFactory("AttendanceVerifier"),
-        "InvalidRequiredPeerCount",
+        "InvalidRequiredPeerCount"
       )
       .withArgs(2n);
   });
 
   it("rejects zero dependency addresses", async function () {
-    const reputation = await ethers.deployContract("ReputationMock");
+    const reputation = await ethers.deployContract("Reputation", [
+      REPUTATION_INITIAL_GRANT,
+      REPUTATION_ATTENDANCE_REWARD,
+    ]);
 
     await expect(
       ethers.deployContract("AttendanceVerifier", [
         ZeroAddress,
         await reputation.getAddress(),
         3,
-      ]),
+      ])
     ).to.be.revertedWithCustomError(
       await ethers.getContractFactory("AttendanceVerifier"),
-      "ZeroAddress",
+      "ZeroAddress"
     );
   });
 });
