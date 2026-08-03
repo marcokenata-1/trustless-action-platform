@@ -58,39 +58,6 @@ export function createIndexerApp(
     }),
   );
 
-  app.get(
-    "/attendance/by-movement/:movementId",
-    asyncRoute(async (request, response) => {
-      const movementId = parse(
-        unsignedBigInt,
-        request.params.movementId,
-        "movementId",
-      );
-      sendJson(response, {
-        events: store.listByMovement(movementId),
-      });
-    }),
-  );
-
-  app.get(
-    "/attendance/by-participant/:movementId/:participant",
-    asyncRoute(async (request, response) => {
-      const movementId = parse(
-        unsignedBigInt,
-        request.params.movementId,
-        "movementId",
-      );
-      const participant = parse(
-        address,
-        request.params.participant,
-        "participant",
-      );
-      sendJson(response, {
-        events: store.listByMovementAndParticipant(movementId, participant),
-      });
-    }),
-  );
-
   app.use(createErrorHandler("Unknown indexer error"));
 
   return app;

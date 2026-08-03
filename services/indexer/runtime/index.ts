@@ -2,9 +2,8 @@ import {
   Contract,
   JsonRpcProvider,
   getAddress,
-  id,
 } from "ethers";
-import type { Log, Provider } from "ethers";
+import type { EventLog, Provider } from "ethers";
 
 export interface ChainAttendanceEvent {
   movementId: bigint;
@@ -32,7 +31,6 @@ const ATTENDANCE_VERIFIER_ABI = [
 export class IndexerRpc implements IndexerChain {
   private readonly provider: Provider;
   private readonly verifier: Contract;
-  private readonly eventTopic: string;
 
   constructor(rpcUrlOrProvider: string | Provider, verifierAddress: string) {
     this.provider =
@@ -43,9 +41,6 @@ export class IndexerRpc implements IndexerChain {
       getAddress(verifierAddress),
       ATTENDANCE_VERIFIER_ABI,
       this.provider,
-    );
-    this.eventTopic = id(
-      "AttendanceVerified(uint256,address,bytes32,uint256,address[])",
     );
   }
 
@@ -61,46 +56,37 @@ export class IndexerRpc implements IndexerChain {
       return [];
     }
 
-    const logs = await this.provider.getLogs({
-      address: await this.verifier.getAddress(),
+    const events = await this.verifier.queryFilter(
+      this.verifier.filters.AttendanceVerified(),
       fromBlock,
       toBlock,
-      topics: [this.eventTopic],
-    });
+    );
 
-    return logs.map((log) => this.decodeLog(log));
+    return events.map((event) => this.decodeEvent(event as EventLog));
   }
 
-  private decodeLog(log: Log): ChainAttendanceEvent {
-    const parsed = this.verifier.interface.parseLog({
-      topics: [...log.topics],
-      data: log.data,
-    });
-    if (!parsed || parsed.name !== "AttendanceVerified") {
-      throw new Error("Unexpected log while indexing AttendanceVerified");
-    }
-
-    if (log.blockNumber === null || log.index === null) {
+  private decodeEvent(event: EventLog): ChainAttendanceEvent {
+    if (event.blockNumber === null || event.index === null) {
       throw new Error("Indexed log is missing blockNumber or logIndex");
     }
 
-    const peers = (parsed.args.peers as string[]).map((peer) =>
+    const peers = (event.args.peers as string[]).map((peer) =>
       getAddress(peer),
     );
-    const proofCount = Number(parsed.args.proofCount as bigint);
+    const proofCount = Number(event.args.proofCount as bigint);
     if (!Number.isSafeInteger(proofCount)) {
       throw new Error("proofCount exceeds JavaScript safe integer");
     }
 
     return {
-      movementId: parsed.args.movementId as bigint,
-      participant: getAddress(parsed.args.participant as string),
-      proofsHash: parsed.args.proofsHash as string,
+      movementId: event.args.movementId as bigint,
+      participant: getAddress(event.args.participant as string),
+      proofsHash: event.args.proofsHash as string,
       proofCount,
       peers,
-      transactionHash: log.transactionHash,
-      blockNumber: log.blockNumber,
-      logIndex: log.index,
+      transactionHash: event.transactionHash,
+      blockNumber: event.blockNumber,
+      logIndex: event.index,
     };
   }
 }
