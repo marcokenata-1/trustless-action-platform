@@ -23,11 +23,16 @@ const { ethers } = await network.create();
 
 const MOVEMENT_ID = 1n;
 const REQUIRED_PEERS = 3;
+const REPUTATION_INITIAL_GRANT = 100n;
+const REPUTATION_ATTENDANCE_REWARD = 50n;
 
 async function deployFixture(peerCount = REQUIRED_PEERS) {
   const [participant, ...otherSigners] = await ethers.getSigners();
   const movement = await ethers.deployContract("MovementMock");
-  const reputation = await ethers.deployContract("ReputationMock");
+  const reputation = await ethers.deployContract("Reputation", [
+    REPUTATION_INITIAL_GRANT,
+    REPUTATION_ATTENDANCE_REWARD,
+  ]);
   const verifier = await ethers.deployContract("AttendanceVerifier", [
     await movement.getAddress(),
     await reputation.getAddress(),
@@ -39,6 +44,8 @@ async function deployFixture(peerCount = REQUIRED_PEERS) {
     reputation.waitForDeployment(),
     verifier.waitForDeployment(),
   ]);
+
+  await reputation.setAttendanceVerifier(await verifier.getAddress());
 
   const { chainId } = await ethers.provider.getNetwork();
   const domain = attendanceDomain(chainId, await verifier.getAddress());
@@ -127,8 +134,14 @@ describe("AttendanceVerifier", function () {
       ),
     ).to.equal(true);
     expect(
-      await fixture.reputation.attendanceRewards(participantAddress),
-    ).to.equal(1n);
+      await fixture.reputation.attendanceRewarded(
+        MOVEMENT_ID,
+        participantAddress,
+      ),
+    ).to.equal(true);
+    expect(await fixture.reputation.balanceOf(participantAddress)).to.equal(
+      REPUTATION_INITIAL_GRANT + REPUTATION_ATTENDANCE_REWARD,
+    );
     for (const proof of sortedProofs) {
       expect(
         await fixture.verifier.verifiedHandshakeDigests(
@@ -153,10 +166,11 @@ describe("AttendanceVerifier", function () {
     );
 
     expect(
-      await fixture.reputation.attendanceRewards(
+      await fixture.reputation.attendanceRewarded(
+        MOVEMENT_ID,
         await fixture.participant.getAddress(),
       ),
-    ).to.equal(1n);
+    ).to.equal(true);
   });
 
   it("rejects an inactive movement", async function () {
@@ -405,7 +419,10 @@ describe("AttendanceVerifier", function () {
 
   it("rejects a deployment quorum below three", async function () {
     const movement = await ethers.deployContract("MovementMock");
-    const reputation = await ethers.deployContract("ReputationMock");
+    const reputation = await ethers.deployContract("Reputation", [
+      REPUTATION_INITIAL_GRANT,
+      REPUTATION_ATTENDANCE_REWARD,
+    ]);
 
     await expect(
       ethers.deployContract("AttendanceVerifier", [
@@ -422,7 +439,10 @@ describe("AttendanceVerifier", function () {
   });
 
   it("rejects zero dependency addresses", async function () {
-    const reputation = await ethers.deployContract("ReputationMock");
+    const reputation = await ethers.deployContract("Reputation", [
+      REPUTATION_INITIAL_GRANT,
+      REPUTATION_ATTENDANCE_REWARD,
+    ]);
 
     await expect(
       ethers.deployContract("AttendanceVerifier", [
