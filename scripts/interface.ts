@@ -57,6 +57,6 @@ export type { SyncResult };
 
 export interface DeployedAddresses {
   "AttendanceDemo#MovementMock": string;
-  "AttendanceDemo#ReputationMock": string;
+  "AttendanceDemo#Reputation": string;
   "AttendanceDemo#AttendanceVerifier": string;
 }
