@@ -34,7 +34,7 @@ class User(base):
 
 # Movement Table
 class Movement(base):
-    __tablename__ = "movement"
+    __tablename__ = "movements"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
@@ -57,7 +57,7 @@ class Movement(base):
 
 # Participant Table
 class Participant(base):
-    __tablename__ = "participant"
+    __tablename__ = "participants"
 
     movement_id = Column(UUID(as_uuid=True), ForeignKey('movements.id'), primary_key=True)
     participant_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), primary_key=True)
