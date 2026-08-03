@@ -76,7 +76,7 @@ def user_login(
 
     # Look for user with the same address
     statement = select(User).where(User.address == payload.address) 
-    user = db.scalar_one_or_none(statement)
+    user = db.scalar(statement)
 
     # Get reputation from contract
     try : 

@@ -17,7 +17,7 @@ from routers.users import get_user_average_reputation
 def movement_item(session: Movement) -> MovementResponse:
     return MovementResponse(
         id=session.id,
-        organizer=session.organizer,
+        organizer=session.organizer_id,
         title=session.title,
         due=session.due,
         status=session.status,
@@ -49,7 +49,7 @@ def get_movements(
 
 
 
-# Get User reputation, create movement and filter, connect to ether 
+# Create Movement with Dynamic Threshold Calculation
 @router.post("/create", status_code=201)
 def create_movement(
     movement_input : MovementPayload,
@@ -83,13 +83,15 @@ def create_movement(
         )
 
     ipfs_id = ''
+
+    # Create new calculation methods using average
     
     # Create New Movement Instance
     new_movement = Movement(
         title=movement_input.title,
         due=movement_input.due,
-        organizer=current_user.id,
-        ipfs_id=ipfs_id,
+        organizer_id=current_user.id,
+        ipfs_id=movement_input.ipfs_cid,
         onchain_id=None,
     )
 
@@ -97,5 +99,10 @@ def create_movement(
     db.add(new_movement)
     db.commit()
     db.refresh(new_movement)
+
+    # Push to Jack's function to trigger create movement
+    # OR
+    # 
+
 
     return new_movement()

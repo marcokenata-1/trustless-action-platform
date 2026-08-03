@@ -1,13 +1,6 @@
 from functools import lru_cache
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Load Contract ABI from json file
-def load_contract_abi(contract_path:str) -> dict:
-    with open(contract_path, "r") as f:
-        artifacts = json.load(f)
-
-    return artifacts["abi"]
 
 # Configuration Settings for the application
 class Settings(BaseSettings):
