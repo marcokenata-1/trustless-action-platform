@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import { ZeroAddress } from "ethers";
-import type { Signer, TypedDataDomain } from "ethers";
 import { network } from "hardhat";
 
 import {
@@ -9,7 +8,6 @@ import {
   buildAttendance,
   computeHandshakeDigest,
   computeProofsHash,
-  createHandshake,
   signAttendance,
   signHandshake,
   sortHandshakeProofs,
@@ -19,39 +17,12 @@ import type {
   Handshake,
   HandshakeProof,
 } from "../shared/attendance.js";
+import { signProof, toContractProof } from "../shared/mapper.js";
 
 const { ethers } = await network.create();
 
 const MOVEMENT_ID = 1n;
 const REQUIRED_PEERS = 3;
-
-function toContractProof(proof: HandshakeProof) {
-  return {
-    peer: proof.peer,
-    nonce: proof.nonce,
-    timestamp: proof.timestamp,
-    peerSignature: proof.peerSignature,
-  };
-}
-
-async function signProof(
-  participant: Signer,
-  peer: Signer,
-  domain: TypedDataDomain,
-  overrides: Partial<Handshake> = {},
-): Promise<HandshakeProof> {
-  const handshake: Handshake = {
-    ...createHandshake(
-      MOVEMENT_ID,
-      await participant.getAddress(),
-      await peer.getAddress(),
-      1_700_000_000n,
-    ),
-    ...overrides,
-  };
-  const peerSignature = await signHandshake(peer, domain, handshake);
-  return { ...handshake, peerSignature };
-}
 
 async function deployFixture(peerCount = REQUIRED_PEERS) {
   const [participant, ...otherSigners] = await ethers.getSigners();
@@ -102,7 +73,9 @@ async function prepareClaim(
       await peer.getAddress(),
       true,
     );
-    proofs.push(await signProof(fixture.participant, peer, fixture.domain));
+    proofs.push(
+      await signProof(fixture.participant, peer, fixture.domain, MOVEMENT_ID),
+    );
   }
 
   const sortedProofs = sortHandshakeProofs(proofs);
@@ -250,7 +223,9 @@ describe("AttendanceVerifier", function () {
         await peer.getAddress(),
         true,
       );
-      proofs.push(await signProof(fixture.participant, peer, fixture.domain));
+      proofs.push(
+      await signProof(fixture.participant, peer, fixture.domain, MOVEMENT_ID),
+    );
     }
 
     const sortedProofs = sortHandshakeProofs(proofs);
