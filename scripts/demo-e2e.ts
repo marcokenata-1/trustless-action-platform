@@ -73,12 +73,17 @@ async function main(): Promise<void> {
     "--network",
     "localhost",
   ]);
-  const verifierAddress = readVerifierAddress();
+  const { verifierAddress, movementAddress, reputationAddress } =
+    readDeployedAddresses();
   log.success(`AttendanceVerifier deployed at ${verifierAddress}`);
+  log.success(`Movement deployed at ${movementAddress}`);
+  log.success(`Reputation deployed at ${reputationAddress}`);
 
   const serviceEnv = {
     RPC_URL,
     ATTENDANCE_VERIFIER_ADDRESS: verifierAddress,
+    MOVEMENT_ADDRESS: movementAddress,
+    REPUTATION_ADDRESS: reputationAddress,
     SIMULATOR_PORT,
     HANDSHAKE_DB_PATH: ":memory:",
     INDEXER_PORT,
@@ -144,20 +149,61 @@ async function main(): Promise<void> {
   log.success(`Submitted attendance  tx=${submission.transactionHash}`);
   log.info(`proofsHash=${submission.proofsHash}`);
 
-  log.start("Indexing AttendanceVerified");
+  log.start("Indexing attendance + movement + reputation");
   const sync = await postJson<SyncResult>(`${INDEXER_URL}/sync`, {});
   const indexed = await getJson<AttendanceListResponse>(
     `${INDEXER_URL}/attendance?movementId=${MOVEMENT_ID}`,
   );
+  const movements = await getJson<{
+    movements: Array<{ movementId: string; status: string; tally: string }>;
+  }>(`${INDEXER_URL}/movements?movementId=${MOVEMENT_ID}`);
 
-  log.info(
-    `Sync complete  seen=${sync.eventsSeen} inserted=${sync.eventsInserted}`,
+  logStreamSync("Attendance", sync.attendance);
+  logStreamSync("Movement", sync.movement);
+  logStreamSync("Reputation", sync.reputation);
+  log.success(
+    `Indexed attendance for movement ${MOVEMENT_ID}: ${indexed.events.length}`,
   );
-  log.success(`Indexed events for movement ${MOVEMENT_ID}: ${indexed.events.length}`);
+  if (movements.movements.length !== 1) {
+    throw new Error(`Expected 1 indexed movement, got ${movements.movements.length}`);
+  }
+  log.success(
+    `Indexed movement ${MOVEMENT_ID} status=${movements.movements[0].status} tally=${movements.movements[0].tally}`,
+  );
+
+  const reputationEvents = await getJson<{
+    events: Array<{ eventType: string }>;
+  }>(`${INDEXER_URL}/reputation-events?movementId=${MOVEMENT_ID}`);
+  const rewarded = reputationEvents.events.filter(
+    (event) => event.eventType === "AttendanceRewarded",
+  );
+  if (rewarded.length !== 1) {
+    throw new Error(
+      `Expected 1 AttendanceRewarded event, got ${rewarded.length}`,
+    );
+  }
+  log.success(`Indexed reputation AttendanceRewarded for movement ${MOVEMENT_ID}`);
   log.box("E2E demo succeeded");
 }
 
-function readVerifierAddress(): string {
+function logStreamSync(
+  label: string,
+  result: SyncResult["attendance"],
+): void {
+  if (result.error !== undefined) {
+    log.error(`${label} sync failed: ${result.error}`);
+    return;
+  }
+  log.info(
+    `${label} sync  seen=${result.eventsSeen} inserted=${result.eventsInserted}`,
+  );
+}
+
+function readDeployedAddresses(): {
+  verifierAddress: string;
+  movementAddress: string;
+  reputationAddress: string;
+} {
   const path = join(
     ROOT,
     "ignition/deployments/chain-31337/deployed_addresses.json",
@@ -165,11 +211,23 @@ function readVerifierAddress(): string {
   const addresses = JSON.parse(
     readFileSync(path, "utf8"),
   ) as DeployedAddresses;
-  const address = addresses["AttendanceDemo#AttendanceVerifier"];
-  if (!address) {
+  const verifierAddress = addresses["AttendanceDemo#AttendanceVerifier"];
+  const movementAddress = addresses["AttendanceDemo#Movement"];
+  const reputationAddress = addresses["AttendanceDemo#Reputation"];
+  if (!verifierAddress) {
     throw new Error(`AttendanceVerifier missing from ${path}`);
   }
-  return getAddress(address);
+  if (!movementAddress) {
+    throw new Error(`Movement missing from ${path}`);
+  }
+  if (!reputationAddress) {
+    throw new Error(`Reputation missing from ${path}`);
+  }
+  return {
+    verifierAddress: getAddress(verifierAddress),
+    movementAddress: getAddress(movementAddress),
+    reputationAddress: getAddress(reputationAddress),
+  };
 }
 
 function spawnLogged(

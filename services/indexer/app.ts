@@ -1,18 +1,19 @@
 import express from "express";
 
 import { asyncRoute, createErrorHandler, sendJson } from "../../shared/http.js";
-import type { AttendanceListener } from "./listener/index.js";
+import type { IndexerListener } from "./listener/index.js";
 import {
-  address,
   attendanceQuerySchema,
+  movementIdParamSchema,
+  movementIdQuerySchema,
   parse,
-  unsignedBigInt,
+  reputationQuerySchema,
 } from "./schema/index.js";
-import type { AttendanceStore } from "./store/index.js";
+import type { IndexerStore } from "./store/index.js";
 
 export function createIndexerApp(
-  store: AttendanceStore,
-  listener: AttendanceListener,
+  store: IndexerStore,
+  listener: IndexerListener,
 ) {
   const app = express();
   app.use(express.json({ limit: "64kb" }));
@@ -25,7 +26,15 @@ export function createIndexerApp(
     "/sync/status",
     asyncRoute(async (_request, response) => {
       sendJson(response, {
-        lastIndexedBlock: store.getLastIndexedBlock(),
+        attendance: {
+          lastIndexedBlock: store.getLastIndexedAttendanceBlock(),
+        },
+        movement: {
+          lastIndexedBlock: store.getLastIndexedMovementBlock(),
+        },
+        reputation: {
+          lastIndexedBlock: store.getLastIndexedReputationBlock(),
+        },
       });
     }),
   );
@@ -48,13 +57,96 @@ export function createIndexerApp(
 
       const events =
         query.participant === undefined
-          ? store.listByMovement(query.movementId)
-          : store.listByMovementAndParticipant(
+          ? store.listAttendanceByMovement(query.movementId)
+          : store.listAttendanceByMovementAndParticipant(
               query.movementId,
               query.participant,
             );
 
       sendJson(response, { events });
+    }),
+  );
+
+  app.get(
+    "/movements",
+    asyncRoute(async (request, response) => {
+      const query = parse(movementIdQuerySchema, {
+        movementId: request.query.movementId,
+      });
+
+      if (query.movementId !== undefined) {
+        const movement = store.getMovement(query.movementId);
+        sendJson(response, {
+          movements: movement === null ? [] : [movement],
+        });
+        return;
+      }
+
+      sendJson(response, { movements: store.listMovements() });
+    }),
+  );
+
+  app.get(
+    "/movements/:movementId",
+    asyncRoute(async (request, response) => {
+      const { movementId } = parse(movementIdParamSchema, {
+        movementId: request.params.movementId,
+      });
+      const movement = store.getMovement(movementId);
+      if (movement === null) {
+        response.status(404).json({ error: "Movement not found" });
+        return;
+      }
+
+      sendJson(response, {
+        movement,
+        commits: store.listCommits(movementId),
+      });
+    }),
+  );
+
+  app.get(
+    "/movements/:movementId/commits",
+    asyncRoute(async (request, response) => {
+      const { movementId } = parse(movementIdParamSchema, {
+        movementId: request.params.movementId,
+      });
+      sendJson(response, { commits: store.listCommits(movementId) });
+    }),
+  );
+
+  app.get(
+    "/movement-events",
+    asyncRoute(async (request, response) => {
+      const query = parse(movementIdQuerySchema, {
+        movementId: request.query.movementId,
+      });
+      sendJson(response, {
+        events: store.listMovementEvents(query.movementId),
+      });
+    }),
+  );
+
+  app.get(
+    "/create-requirement-updates",
+    asyncRoute(async (_request, response) => {
+      sendJson(response, {
+        updates: store.listCreateRequirementUpdates(),
+      });
+    }),
+  );
+
+  app.get(
+    "/reputation-events",
+    asyncRoute(async (request, response) => {
+      const query = parse(reputationQuerySchema, {
+        eventType: request.query.eventType,
+        participant: request.query.participant,
+        movementId: request.query.movementId,
+      });
+      sendJson(response, {
+        events: store.listReputationEvents(query),
+      });
     }),
   );
 
