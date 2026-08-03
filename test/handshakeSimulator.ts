@@ -16,17 +16,25 @@ import { HandshakeStore } from "../services/simulator/store/index.js";
 const { ethers } = await network.create();
 
 describe("handshake simulator API", function () {
+  const REPUTATION_INITIAL_GRANT = 100n;
+  const REPUTATION_ATTENDANCE_REWARD = 50n;
+
   async function deployFixture() {
     const [participant, peerA, peerB, peerC] = await ethers.getSigners();
     const signers = [participant, peerA, peerB, peerC];
     const movement = await ethers.deployContract("MovementMock");
-    const reputation = await ethers.deployContract("ReputationMock");
+    const reputation = await ethers.deployContract("Reputation", [
+      REPUTATION_INITIAL_GRANT,
+      REPUTATION_ATTENDANCE_REWARD,
+    ]);
     const verifier = await ethers.deployContract("AttendanceVerifier", [
       await movement.getAddress(),
       await reputation.getAddress(),
       3,
     ]);
     const movementId = 1n;
+
+    await reputation.setAttendanceVerifier(await verifier.getAddress());
 
     await movement.setActive(movementId, true);
     for (const signer of signers.slice(0, 4)) {
@@ -158,11 +166,16 @@ describe("handshake simulator API", function () {
 
     expect(submission.body.transactionHash).to.match(/^0x[0-9a-f]{64}$/);
     expect(submission.body.movementId).to.equal("1");
+    const participantAddress = await fixture.participant.getAddress();
     expect(
-      await fixture.reputation.attendanceRewards(
-        await fixture.participant.getAddress(),
+      await fixture.reputation.attendanceRewarded(
+        fixture.movementId,
+        participantAddress,
       ),
-    ).to.equal(1n);
+    ).to.equal(true);
+    expect(await fixture.reputation.balanceOf(participantAddress)).to.equal(
+      REPUTATION_INITIAL_GRANT + REPUTATION_ATTENDANCE_REWARD,
+    );
   });
 
   it("rejects a tampered peer proof before submission", async function () {

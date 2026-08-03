@@ -20,18 +20,25 @@ const { ethers } = await network.create();
 
 const MOVEMENT_ID = 1n;
 const REQUIRED_PEERS = 3;
+const REPUTATION_INITIAL_GRANT = 100n;
+const REPUTATION_ATTENDANCE_REWARD = 50n;
 
 describe("attendance indexer", function () {
   async function deployFixture() {
     const [participant, ...otherSigners] = await ethers.getSigners();
     const peers = otherSigners.slice(0, REQUIRED_PEERS);
     const movement = await ethers.deployContract("MovementMock");
-    const reputation = await ethers.deployContract("ReputationMock");
+    const reputation = await ethers.deployContract("Reputation", [
+      REPUTATION_INITIAL_GRANT,
+      REPUTATION_ATTENDANCE_REWARD,
+    ]);
     const verifier = await ethers.deployContract("AttendanceVerifier", [
       await movement.getAddress(),
       await reputation.getAddress(),
       REQUIRED_PEERS,
     ]);
+
+    await reputation.setAttendanceVerifier(await verifier.getAddress());
 
     await movement.setActive(MOVEMENT_ID, true);
     await movement.setCommitted(
