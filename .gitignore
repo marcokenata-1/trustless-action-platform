@@ -1,6 +1,12 @@
 # Node modules
 /node_modules
 
+# Compilation output
+/dist
+
+# pnpm deploy output
+/bundle
+
 # Hardhat Build Artifacts
 /artifacts
 
@@ -10,6 +16,11 @@
 # Typechain output
 /types
 
+# Local SQLite databases
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
 # Environment files
 .env
 .env.*
@@ -18,5 +29,14 @@
 # Hardhat coverage reports
 /coverage
 
+# Gas snapshot files
+/.gas-snapshot
+
+# Snapshot cheatcodes output
+/snapshots
+
 # Hardhat Ignition local-node deployments (ephemeral; regenerate on redeploy)
 ignition/deployments/*
+
+# Personal files
+personal/*

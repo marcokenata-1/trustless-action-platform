@@ -1,0 +1,1 @@
+Everything created under mocks/ are temporary files used for unblocking development process due to code dependency. Once real implementation is satisfied, mocks and existing reference shall be replaced.
