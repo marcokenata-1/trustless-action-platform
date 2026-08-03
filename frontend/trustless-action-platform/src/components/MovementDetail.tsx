@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import type { MovementResponse } from "./MovementList";
+import { movementAddress, movementAbi } from "../lib/movementContract";
 
 type MovementManifest = {
   description: string;
@@ -13,7 +15,11 @@ type MovementDetailProps = {
 };
 
 export function MovementDetail({ movement, onBack }: MovementDetailProps) {
-  const { data: manifest, isLoading, error } = useQuery({
+  const {
+    data: manifest,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["manifest", movement.ipfs_id],
     queryFn: async () => {
       const res = await fetch(
@@ -24,6 +30,35 @@ export function MovementDetail({ movement, onBack }: MovementDetailProps) {
     },
     enabled: !!movement.ipfs_id,
   });
+
+  const { address } = useAccount();
+  const queryClient = useQueryClient();
+  const { writeContractAsync, isPending: isJoining } = useWriteContract();
+
+  const onchainId = movement.onchain_id;
+  // reading straight from the contract here instead of asking the backend,
+  // want this to be right the instant you click, not whatever the indexer
+  // last saw
+  const { data: isCommitted, refetch: refetchIsCommitted } = useReadContract({
+    address: movementAddress,
+    abi: movementAbi,
+    functionName: "isCommitted",
+    args:
+      onchainId !== null && address ? [BigInt(onchainId), address] : undefined,
+    query: { enabled: onchainId !== null && !!address },
+  });
+
+  async function handleJoin() {
+    if (onchainId === null) return;
+    await writeContractAsync({
+      address: movementAddress,
+      abi: movementAbi,
+      functionName: "commit",
+      args: [BigInt(onchainId)],
+    });
+    await refetchIsCommitted();
+    await queryClient.invalidateQueries({ queryKey: ["movements"] });
+  }
 
   return (
     <div className="movement-detail">
@@ -36,6 +71,20 @@ export function MovementDetail({ movement, onBack }: MovementDetailProps) {
       <p className="movement-due">
         Due {new Date(movement.due).toLocaleString()}
       </p>
+
+      {onchainId === null ? (
+        <p className="movement-list-status">
+          Not yet on-chain — joining isn't available for this movement.
+        </p>
+      ) : (
+        <button
+          className="movement-detail-join"
+          onClick={handleJoin}
+          disabled={!address || isJoining || isCommitted === true}
+        >
+          {isCommitted ? "Joined" : isJoining ? "Joining..." : "Join"}
+        </button>
+      )}
 
       {!movement.ipfs_id ? (
         <p className="movement-list-status">

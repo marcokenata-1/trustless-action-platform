@@ -15,16 +15,25 @@ type MovementListProps = {
 };
 
 export function MovementList({ onSelect }: MovementListProps) {
-  const { data: movements, isLoading, error } = useQuery({
+  // TODO: this hits Vedro's backend for now, should point at Stephen's
+  // indexer once that's actually up
+  const {
+    data: movements,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["movements"],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_API_URL}/movement/`);
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_API_URL}/movement/`,
+      );
       if (!res.ok) throw new Error("Failed to fetch movements");
       return res.json() as Promise<MovementResponse[]>;
     },
   });
 
-  if (isLoading) return <p className="movement-list-status">Loading movements...</p>;
+  if (isLoading)
+    return <p className="movement-list-status">Loading movements...</p>;
   if (error) return <p className="form-error">{(error as Error).message}</p>;
   if (!movements || movements.length === 0) {
     return <p className="movement-list-status">No movements yet.</p>;
@@ -33,6 +42,7 @@ export function MovementList({ onSelect }: MovementListProps) {
   return (
     <ul className="movement-list">
       {movements.map((m) => (
+        // passing the whole row we already have instead of refetching by id
         <li key={m.id} onClick={() => onSelect(m)}>
           <span className="movement-title">{m.title}</span>
           <span className="movement-status">{m.status}</span>

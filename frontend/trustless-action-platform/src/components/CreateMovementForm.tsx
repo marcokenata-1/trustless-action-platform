@@ -1,17 +1,27 @@
 import { useState } from "react";
+import { parseEventLogs } from "viem";
 import uploadMovementWiki from "../lib/ipfs";
-import { useSignMessage, useAccount } from "wagmi";
+import {
+  useSignMessage,
+  useAccount,
+  useWriteContract,
+  usePublicClient,
+} from "wagmi";
+import { movementAddress, movementAbi } from "../lib/movementContract";
 
 export function CreateMovementForm() {
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [description, setDescription] = useState("");
+  const [threshold, setThreshold] = useState("3"); // just a sane default, no real basis for 3
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { signMessageAsync } = useSignMessage();
   const { address } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -29,16 +39,35 @@ export function CreateMovementForm() {
 
       const manifestCid = await uploadMovementWiki(imageFiles, description);
 
+      // contract wants deadline in days, we only have a datetime picker,
+      // so just round up to whole days from now (min 1, can't backdate)
+      const dueDate = new Date(due);
+      const deadlineDays = BigInt(
+        Math.max(1, Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000)),
+      );
+
+      // has to go on-chain first since we need the real movementId back
+      // before the backend row makes any sense
+      const createTxHash = await writeContractAsync({
+        address: movementAddress,
+        abi: movementAbi,
+        functionName: "createMovement",
+        args: [BigInt(threshold), deadlineDays, manifestCid],
+      });
+
+      const receipt = await publicClient!.waitForTransactionReceipt({
+        hash: createTxHash,
+      });
+
+      const [createdEvent] = parseEventLogs({
+        abi: movementAbi,
+        eventName: "MovementCreated",
+        logs: receipt.logs,
+      });
+      const onchainId = Number(createdEvent.args.movementId);
+
       const message = "Sign this message to authenticate";
       const signature = await signMessageAsync({ message });
-
-      console.log(JSON.stringify({
-            title,
-            due: new Date(due).toISOString(),
-            ipfs_cid: manifestCid,
-            address,
-            signature,
-          }))
 
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_API_URL}/movement/create`,
@@ -51,10 +80,11 @@ export function CreateMovementForm() {
           },
           body: JSON.stringify({
             title,
-            due: new Date(due).toISOString(),
+            due: dueDate.toISOString(),
             ipfs_cid: manifestCid,
             address,
             signature,
+            onchain_id: onchainId,
           }),
         },
       );
@@ -101,6 +131,18 @@ export function CreateMovementForm() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description"
+          required
+        />
+
+        <label htmlFor="movement-threshold">
+          Commitments required to activate
+        </label>
+        <input
+          id="movement-threshold"
+          type="number"
+          min={1}
+          value={threshold}
+          onChange={(e) => setThreshold(e.target.value)}
           required
         />
       </fieldset>
