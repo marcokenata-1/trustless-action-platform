@@ -65,12 +65,12 @@ node --import tsx --env-file=services/simulator/.env services/simulator/server.t
    curl -s http://127.0.0.1:3001/submit -H 'content-type: application/json' -d '{YOUR_PAYLOAD}'
 
 
-## Terminal 5 - Run attendance indexer
+## Terminal 5 - Run indexer (both attendance and movement)
 
 ```shell
 cp services/indexer/.env.example services/indexer/.env
 
-# set ATTENDANCE_VERIFIER_ADDRESS from ignition
+# set ATTENDANCE_VERIFIER_ADDRESS, MOVEMENT_ADDRESS, and REPUTATION_ADDRESS from ignition
 node --import tsx --env-file=services/indexer/.env services/indexer/server.ts
 ```
 
@@ -78,4 +78,6 @@ After a successful `/submit`, sync (automatic poll or `POST /sync`) then query:
 
 ```shell
 curl -s 'http://127.0.0.1:3002/attendance?movementId=1'
+curl -s 'http://127.0.0.1:3002/movements/1'
+curl -s 'http://127.0.0.1:3002/reputation-events?movementId=1'
 ```
