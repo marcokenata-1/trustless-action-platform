@@ -7,6 +7,7 @@
     "compile": "hardhat compile",
     "simulator": "tsx services/simulator/server.ts",
     "indexer": "tsx services/indexer/server.ts",
+    "demo:e2e": "tsx scripts/demo-e2e.ts",
     "test": "hardhat test",
     "typecheck": "tsc --noEmit"
   },
@@ -34,6 +35,7 @@
     "@types/node": "^22.20.1",
     "@types/supertest": "^7.2.1",
     "chai": "^6.2.2",
+    "consola": "^3.4.2",
     "ethers": "^6.17.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.10.0",

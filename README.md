@@ -13,7 +13,27 @@ npm run compile
 npm run typecheck
 npm test
 
-## Running local
+## One-command local demo
+
+Requires ports `8545`, `3001`, and `3002` free (stop any existing Hardhat node /
+simulator / indexer first):
+
+```shell
+npm run demo:e2e
+# optional: show Hardhat / simulator / indexer process logs
+VERBOSE=1 npm run demo:e2e
+# or
+npm run demo:e2e -- --verbose
+```
+
+This compiles contracts, starts Hardhat node, deploys `AttendanceDemo`, starts
+simulator + indexer, runs handshake + attest + submit + index sync, then shuts
+everything down.
+
+If `hardhat node` fails with `Failed to parse build info: missing field contracts`,
+run `npx hardhat clean && npx hardhat compile` once, then retry.
+
+## Running local (manual)
 
 ## Terminal 1 - Run a local blockchain node using hardhat
 
@@ -49,6 +69,7 @@ node --import tsx --env-file=services/simulator/.env services/simulator/server.t
 
 ```shell
 cp services/indexer/.env.example services/indexer/.env
+
 # set ATTENDANCE_VERIFIER_ADDRESS from ignition
 node --import tsx --env-file=services/indexer/.env services/indexer/server.ts
 ```
