@@ -82,10 +82,6 @@ def create_movement(
             detail="Offchain Requirement is not match with the onchain requirement"
         )
 
-    ipfs_id = ''
-
-    # Create new calculation methods using average
-    
     # Create New Movement Instance
     new_movement = Movement(
         title=movement_input.title,
@@ -102,7 +98,6 @@ def create_movement(
 
     # Push to Jack's function to trigger create movement
     # OR
-    # 
+    #
 
-
-    return new_movement()
+    return new_movement

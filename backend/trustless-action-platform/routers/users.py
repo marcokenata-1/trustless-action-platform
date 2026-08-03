@@ -75,7 +75,7 @@ def user_login(
         )
 
     # Look for user with the same address
-    statement = select(User).where(User.address == payload.address) 
+    statement = select(User).where(User.address == payload.address)
     user = db.scalar(statement)
 
     # Get reputation from contract
@@ -199,7 +199,7 @@ def current_user(
 
     # Retrieve user data from database
     statement = select(User).where(User.address == address)
-    user = db.scalar_one_or_none(statement)
+    user = db.scalar(statement)
 
     if not user:
         raise HTTPException(
