@@ -1,0 +1,13 @@
+{
+  "ReputationModule": {
+    "initialGrant": "100",
+    "attendanceReward": "50"
+  },
+  "PlatformModule": {
+    "initialGrant": "100",
+    "attendanceReward": "50",
+    "initialCreateRequirement": "300",
+    "requiredPeerCount": "3",
+    "requirementUpdater": "0x0000000000000000000000000000000000000000"
+  }
+}
