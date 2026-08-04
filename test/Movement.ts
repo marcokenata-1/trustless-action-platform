@@ -3,7 +3,9 @@ import { network } from "hardhat";
 
 const { ethers } = await network.create();
 
-const CREATE_REQUIREMENT = 100n;
+const REPUTATION_INITIAL_GRANT = 100n;
+const REPUTATION_ATTENDANCE_REWARD = 50n;
+const CREATE_REQUIREMENT = REPUTATION_INITIAL_GRANT;
 const BLOCKS_PER_DAY = 7200n;
 const DEMO_CID = "QmTestCid";
 
@@ -11,11 +13,14 @@ async function deployFixture() {
   const [deployer, requirementUpdater, organiser, alice, bob, carol, dave] =
     await ethers.getSigners();
 
-  const reputationMock = await ethers.deployContract("ReputationMock");
-  await reputationMock.waitForDeployment();
+  const reputation = await ethers.deployContract("Reputation", [
+    REPUTATION_INITIAL_GRANT,
+    REPUTATION_ATTENDANCE_REWARD,
+  ]);
+  await reputation.waitForDeployment();
 
   const movement = await ethers.deployContract("Movement", [
-    await reputationMock.getAddress(),
+    await reputation.getAddress(),
     await requirementUpdater.getAddress(),
     CREATE_REQUIREMENT,
   ]);
@@ -23,7 +28,7 @@ async function deployFixture() {
 
   return {
     movement,
-    reputationMock,
+    reputation,
     deployer,
     requirementUpdater,
     organiser,
@@ -40,16 +45,16 @@ async function mineBlocks(count: bigint) {
 
 async function createMovement(
   movement: any,
-  reputationMock: any,
+  reputation: any,
   organiser: any,
   threshold: bigint,
   durationDays: bigint,
   cid: string = DEMO_CID,
 ) {
-  await reputationMock.setBalance(
-    await organiser.getAddress(),
-    CREATE_REQUIREMENT,
-  );
+  const organiserAddr = await organiser.getAddress();
+  if (!(await reputation.isRegistered(organiserAddr))) {
+    await reputation.connect(organiser).register();
+  }
 
   const movementId = await movement
     .connect(organiser)
@@ -63,9 +68,9 @@ async function createMovement(
 describe("Movement", function () {
   describe("createMovement", function () {
     it("succeeds and stores correct data when the organiser has enough reputation", async function () {
-      const { movement, reputationMock, organiser } = await deployFixture();
+      const { movement, reputation, organiser } = await deployFixture();
       const organiserAddr = await organiser.getAddress();
-      await reputationMock.setBalance(organiserAddr, CREATE_REQUIREMENT);
+      await reputation.connect(organiser).register();
 
       const threshold = 3n;
       const durationDays = 1n;
@@ -97,10 +102,7 @@ describe("Movement", function () {
     });
 
     it("reverts when the organiser's reputation is below createRequirement", async function () {
-      const { movement, reputationMock, organiser } = await deployFixture();
-      const organiserAddr = await organiser.getAddress();
-
-      await reputationMock.setBalance(organiserAddr, CREATE_REQUIREMENT - 1n);
+      const { movement, organiser } = await deployFixture();
 
       await expect(
         movement.connect(organiser).createMovement(3n, 1n, DEMO_CID),
@@ -108,22 +110,18 @@ describe("Movement", function () {
     });
 
     it("assigns incrementing ids across multiple movements", async function () {
-      const { movement, reputationMock, organiser } = await deployFixture();
-      await reputationMock.setBalance(
-        await organiser.getAddress(),
-        CREATE_REQUIREMENT,
-      );
+      const { movement, reputation, organiser } = await deployFixture();
 
       const firstId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         3n,
         1n,
       );
       const secondId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         3n,
         1n,
@@ -158,10 +156,10 @@ describe("Movement", function () {
 
   describe("commit", function () {
     it("succeeds, records the commit, and increments the tally", async function () {
-      const { movement, reputationMock, organiser, alice } = await deployFixture();
+      const { movement, reputation, organiser, alice } = await deployFixture();
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         3n,
         1n,
@@ -178,10 +176,10 @@ describe("Movement", function () {
     });
 
     it("reverts on a double commit from the same address", async function () {
-      const { movement, reputationMock, organiser, alice } = await deployFixture();
+      const { movement, reputation, organiser, alice } = await deployFixture();
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         3n,
         1n,
@@ -193,11 +191,11 @@ describe("Movement", function () {
     });
 
     it("reverts once the deadline block has passed", async function () {
-      const { movement, reputationMock, organiser, alice } = await deployFixture();
+      const { movement, reputation, organiser, alice } = await deployFixture();
       const durationDays = 1n;
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         3n,
         durationDays,
@@ -209,11 +207,11 @@ describe("Movement", function () {
     });
 
     it("reverts when the movement is not Open (already Activated)", async function () {
-      const { movement, reputationMock, organiser, alice, bob, carol, dave } =
+      const { movement, reputation, organiser, alice, bob, carol } =
         await deployFixture();
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         2n,
         1n,
@@ -228,12 +226,12 @@ describe("Movement", function () {
     });
 
     it("flips status to Activated exactly when the tally reaches the threshold, and only then", async function () {
-      const { movement, reputationMock, organiser, alice, bob, carol } =
+      const { movement, reputation, organiser, alice, bob, carol } =
         await deployFixture();
       const threshold = 3n;
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         threshold,
         1n,
@@ -260,11 +258,11 @@ describe("Movement", function () {
 
   describe("resolve", function () {
     it("cancels an Open, under-threshold movement once the deadline has passed", async function () {
-      const { movement, reputationMock, organiser, alice } = await deployFixture();
+      const { movement, reputation, organiser, alice } = await deployFixture();
       const durationDays = 1n;
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         3n,
         durationDays,
@@ -281,12 +279,11 @@ describe("Movement", function () {
     });
 
     it("does NOT cancel a movement that already Activated, even after its deadline passes", async function () {
-      const { movement, reputationMock, organiser, alice, bob } =
-        await deployFixture();
+      const { movement, reputation, organiser, alice, bob } = await deployFixture();
       const durationDays = 1n;
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         2n,
         durationDays,
@@ -305,10 +302,10 @@ describe("Movement", function () {
     });
 
     it("does nothing if the deadline hasn't passed yet", async function () {
-      const { movement, reputationMock, organiser } = await deployFixture();
+      const { movement, reputation, organiser } = await deployFixture();
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         3n,
         1n,
@@ -324,11 +321,11 @@ describe("Movement", function () {
 
   describe("frozen state invariant", function () {
     it("a Cancelled movement can never accept a commit, and resolve() is a no-op on it afterwards", async function () {
-      const { movement, reputationMock, organiser, alice } = await deployFixture();
+      const { movement, reputation, organiser, alice } = await deployFixture();
       const durationDays = 1n;
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         5n,
         durationDays,
@@ -349,11 +346,10 @@ describe("Movement", function () {
 
   describe("getters", function () {
     it("isCommitted reflects true only for addresses that actually committed", async function () {
-      const { movement, reputationMock, organiser, alice, bob } =
-        await deployFixture();
+      const { movement, reputation, organiser, alice, bob } = await deployFixture();
       const movementId = await createMovement(
         movement,
-        reputationMock,
+        reputation,
         organiser,
         5n,
         1n,
