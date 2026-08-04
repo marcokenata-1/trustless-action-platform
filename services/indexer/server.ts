@@ -15,6 +15,7 @@ const chain = new IndexerRpc(
 const listener = new IndexerListener(chain, store, config.startBlock);
 const app = createIndexerApp(store, listener);
 
+// WALKTHROUGH INDEXER 1 - poll for all events emitted on chain and store to relevant db.
 listener.startPolling(config.pollIntervalMs);
 
 app.listen(config.port, () => {

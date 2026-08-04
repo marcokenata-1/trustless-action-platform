@@ -33,6 +33,7 @@ interface HandshakeSessionRow {
 export class HandshakeStore {
   private readonly database: Database.Database;
   private readonly selectSession: Database.Statement;
+  private readonly selectByMovement: Database.Statement;
   private readonly insertSession: Database.Statement;
 
   constructor(filename: string) {
@@ -72,6 +73,21 @@ export class HandshakeStore {
       FROM handshake_sessions
       WHERE movement_id = ? AND party_a = ? AND party_b = ?
     `);
+    this.selectByMovement = this.database.prepare(`
+      SELECT
+        movement_id,
+        party_a,
+        party_b,
+        a_nonce,
+        a_timestamp,
+        a_peer_signature,
+        b_nonce,
+        b_timestamp,
+        b_peer_signature
+      FROM handshake_sessions
+      WHERE movement_id = ?
+      ORDER BY created_at ASC
+    `);
     this.insertSession = this.database.prepare(`
       INSERT INTO handshake_sessions (
         movement_id,
@@ -104,6 +120,13 @@ export class HandshakeStore {
     ) as HandshakeSessionRow | undefined;
 
     return row ? rowToSession(row) : undefined;
+  }
+
+  listByMovement(movementId: bigint): MutualHandshakeSession[] {
+    const rows = this.selectByMovement.all(
+      movementId.toString(),
+    ) as HandshakeSessionRow[];
+    return rows.map(rowToSession);
   }
 
   insertOrGet(proposed: MutualHandshakeSession): StoredHandshakeResult {

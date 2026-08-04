@@ -9,7 +9,14 @@ import {
   parse,
   reputationQuerySchema,
 } from "./schema/index.js";
-import type { IndexerStore } from "./store/index.js";
+import type { IndexerStore, StoredMovement } from "./store/index.js";
+
+// UI just wants a "due" field, and deadlineBlock is the closest thing we
+// have on-chain — no real timestamp exists for it, so this is literally
+// just the block number under a friendlier name.
+function withDue(movement: StoredMovement) {
+  return { ...movement, due: movement.deadlineBlock };
+}
 
 export function createIndexerApp(
   store: IndexerStore,
@@ -17,6 +24,18 @@ export function createIndexerApp(
 ) {
   const app = express();
   app.use(express.json({ limit: "64kb" }));
+  // frontend runs on a different origin (vite dev server) — no browser
+  // client can call this without it
+  app.use((request, response, next) => {
+    response.header("Access-Control-Allow-Origin", "*");
+    response.header("Access-Control-Allow-Headers", "Content-Type");
+    response.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    if (request.method === "OPTIONS") {
+      response.sendStatus(204);
+      return;
+    }
+    next();
+  });
 
   app.get("/health", (_request, response) => {
     response.json({ status: "ok" });
@@ -77,12 +96,12 @@ export function createIndexerApp(
       if (query.movementId !== undefined) {
         const movement = store.getMovement(query.movementId);
         sendJson(response, {
-          movements: movement === null ? [] : [movement],
+          movements: movement === null ? [] : [withDue(movement)],
         });
         return;
       }
 
-      sendJson(response, { movements: store.listMovements() });
+      sendJson(response, { movements: store.listMovements().map(withDue) });
     }),
   );
 
@@ -99,7 +118,7 @@ export function createIndexerApp(
       }
 
       sendJson(response, {
-        movement,
+        movement: withDue(movement),
         commits: store.listCommits(movementId),
       });
     }),

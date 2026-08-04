@@ -22,6 +22,10 @@ export const handshakeProofSchema: Schema<HandshakeProof> = object({
   peerSignature: string,
 });
 
+export const handshakesQuerySchema = object({
+  movementId: unsignedBigInt,
+});
+
 export const simulateHandshakeSchema = object({
   movementId: unsignedBigInt,
   partyA: address,

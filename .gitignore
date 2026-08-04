@@ -1,5 +1,7 @@
-# Node modules
-/node_modules
+# Node modules — unanchored since services/indexer and services/simulator
+# each get their own when run standalone, and only the root one was
+# covered before
+node_modules
 
 # Compilation output
 /dist
