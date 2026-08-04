@@ -17,7 +17,6 @@ import { collectProofs } from "./helpers/collectProof.js";
 
 const { ethers } = await network.create();
 
-
 describe("attendance EIP-712 helpers", function () {
   it("creates a mutual handshake with swapped roles and a shared timestamp", async function () {
     const [partyA, partyB] = await ethers.getSigners();
@@ -25,7 +24,7 @@ describe("attendance EIP-712 helpers", function () {
       1n,
       await partyA.getAddress(),
       await partyB.getAddress(),
-      1_700_000_000n,
+      1_700_000_000n
     );
 
     expect(handshakeForA.participant).to.equal(await partyA.getAddress());
@@ -42,7 +41,7 @@ describe("attendance EIP-712 helpers", function () {
     const proofs = await collectProofs(
       participant,
       peers.slice(0, 3).reverse(),
-      domain,
+      domain
     );
 
     for (const proof of proofs) {
@@ -53,20 +52,20 @@ describe("attendance EIP-712 helpers", function () {
     const participantSignature = await signAttendance(
       participant,
       domain,
-      attendance,
+      attendance
     );
 
     expect(
-      getAttendanceParticipant(domain, attendance, participantSignature),
+      getAttendanceParticipant(domain, attendance, participantSignature)
     ).to.equal(await participant.getAddress());
     expect(attendance.requiredPeerCount).to.equal(3n);
     expect(attendance.proofsHash).to.equal(computeProofsHash(domain, proofs));
     expect(attendance.proofsHash).to.equal(
-      computeProofsHash(domain, sortHandshakeProofs(proofs).reverse()),
+      computeProofsHash(domain, sortHandshakeProofs(proofs).reverse())
     );
   });
 
-  it("supports a custom peer quorum without changing the Attendance schema", async function () {
+  it("supports a custom peer quorum", async function () {
     const [participant, ...peers] = await ethers.getSigners();
     const domain = attendanceDomain(31337n, ZeroAddress);
     const proofs = await collectProofs(participant, peers.slice(0, 4), domain);
@@ -94,7 +93,7 @@ describe("attendance EIP-712 helpers", function () {
     const handshake = createHandshake(
       1n,
       await participant.getAddress(),
-      await peer.getAddress(),
+      await peer.getAddress()
     );
     const duplicateProof = {
       ...handshake,
@@ -102,7 +101,7 @@ describe("attendance EIP-712 helpers", function () {
     };
 
     expect(() =>
-      buildAttendance(domain, [duplicateProof, duplicateProof, duplicateProof]),
+      buildAttendance(domain, [duplicateProof, duplicateProof, duplicateProof])
     ).to.throw("Attendance peers must be unique");
   });
 
@@ -112,7 +111,7 @@ describe("attendance EIP-712 helpers", function () {
     const proofs = await collectProofs(participant, [peer], domain);
 
     expect(() => buildAttendance(domain, proofs, 3)).to.throw(
-      "Attendance requires at least 3 peers, got 1",
+      "Attendance requires at least 3 peers, got 1"
     );
   });
 });
