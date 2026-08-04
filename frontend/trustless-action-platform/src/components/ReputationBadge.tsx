@@ -5,8 +5,8 @@ import { reputationAddress, reputationAbi } from "../lib/reputationContract";
 
 // shows the numbers the reputation system gates on — your balance, the
 // network average (straight off-chain), and the create-movement threshold,
-// which comes from Vedro's own backend (his dynamic formula, not the
-// on-chain keeper approach tried first)
+// which comes from the backend's dynamic formula, not the on-chain keeper
+// approach tried first
 export function ReputationBadge() {
   const { address } = useAccount();
 

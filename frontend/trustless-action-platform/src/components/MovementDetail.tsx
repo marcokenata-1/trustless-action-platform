@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useBlockNumber } from "wagmi";
 import type { MovementResponse } from "./MovementList";
 import { movementAddress, movementAbi } from "../lib/movementContract";
 import { hardhatLocal } from "../lib/chains";
@@ -20,6 +20,17 @@ type MovementDetailProps = {
 
 function gatewayUrl(cid: string) {
   return `https://ipfs.io/ipfs/${cid.replace(/^ipfs:\/\//, "")}`;
+}
+
+// Movement.sol computes deadlineBlock as block.number + deadlineDays * 7200
+// — 7200 blocks/day assumes a 12s block time (mainnet's PoS assumption),
+// not the actual local chain, which mines instantly per tx. so this is an
+// estimate using the contract's own assumption, not a real timestamp
+const ASSUMED_BLOCK_SECONDS = 12;
+function estimateDeadlineDate(deadlineBlock: bigint, currentBlock: bigint | undefined) {
+  if (currentBlock === undefined) return null;
+  const secondsRemaining = Number(deadlineBlock - currentBlock) * ASSUMED_BLOCK_SECONDS;
+  return new Date(Date.now() + secondsRemaining * 1000);
 }
 
 export function MovementDetail({ movement: initial, onBack }: MovementDetailProps) {
@@ -59,6 +70,8 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
 
   const { address } = useAccount();
   const { writeContractAsync, isPending: isJoining } = useWriteContract();
+  const { data: currentBlock } = useBlockNumber({ chainId: hardhatLocal.id });
+  const estimatedDeadline = estimateDeadlineDate(BigInt(movement.due), currentBlock);
 
   const onchainId = BigInt(movement.movementId);
   const { data: isCommitted, refetch: refetchIsCommitted } = useReadContract({
@@ -97,6 +110,8 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
       <p className="movement-due">
         Tally {movement.tally}/{movement.threshold} · deadline: block #
         {Number(movement.due).toLocaleString()}
+        {estimatedDeadline &&
+          ` (~${estimatedDeadline.toLocaleDateString()} ${estimatedDeadline.toLocaleTimeString()}, est.)`}
       </p>
 
       <button

@@ -24,8 +24,8 @@ export function CreateMovementForm() {
   // createMovement()'s only revert path is the reputation gate, and it's a
   // bare revert() with no reason string — read these ourselves so we can
   // tell that apart from "something else broke" and show real numbers.
-  // the threshold itself comes from Vedro's backend (his dynamic formula,
-  // not the on-chain keeper approach tried first)
+  // the threshold itself comes from the off-chain backend's dynamic
+  // formula, not the on-chain keeper approach tried first
   const { data: myReputation } = useReadContract({
     address: reputationAddress,
     abi: reputationAbi,
