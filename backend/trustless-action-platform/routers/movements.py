@@ -69,7 +69,59 @@ def get_dynamic_threshold(
 # Create Movement with Dynamic Threshold Calculation
 @router.post("/create", status_code=201)
 def create_movement(
+<<<<<<< HEAD
     threshold: int = Depends(get_dynamic_threshold),
 ):
     # Passing the threshold to front end
     return threshold
+=======
+    movement_input : MovementPayload,
+    current_user = Depends(current_user),
+    db : Session = Depends(get_db),
+    threshold : float = Depends(get_user_average_reputation), # Get average reputation across all users
+    reputation_contract = Depends(GetContract('Reputation'))
+):  
+    
+    # Validate User Reputation
+    if current_user.reputation < threshold:
+        raise HTTPException(
+            status_code=400,
+            detail="Insufficient Reputation to create movement"
+        )
+
+    try:
+        # Call Mamun's "averageReputation" function 
+        onchain_requirement = reputation_contract.caller().averageReputation()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to call function"
+        )
+
+    # If offchain and onchain requirement doesn't match
+    if int(threshold) != (onchain_requirement):
+        raise HTTPException(
+            status_code=409,
+            detail="Offchain Requirement is not match with the onchain requirement"
+        )
+
+    # Create New Movement Instance
+    new_movement = Movement(
+        title=movement_input.title,
+        due=movement_input.due,
+        organizer_id=current_user.id,
+        ipfs_id=movement_input.ipfs_cid,
+        onchain_id=None,
+    )
+
+    # Add new movement to database
+    db.add(new_movement)
+    db.commit()
+    db.refresh(new_movement)
+
+    # Push to Jack's function to trigger create movement
+    # OR
+    #
+
+    return new_movement
+>>>>>>> de1c186a56954c56d043655d307a2d1b0cff06b0
