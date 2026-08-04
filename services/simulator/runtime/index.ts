@@ -51,7 +51,6 @@ export class Simulator implements SimulatorRuntime {
     return attendanceDomain(chainId, this.verifierAddress);
   }
 
-  // TODO: @stephen This only works with unlocked local-node accounts. Use wallet-managed signing for non-local environments.
   async getSigner(address: string): Promise<Signer> {
     return this.provider.getSigner(getAddress(address));
   }

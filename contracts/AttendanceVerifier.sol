@@ -125,14 +125,18 @@ contract AttendanceVerifier is EIP712 {
       );
     }
 
+    // WALKTHROUGH VERIFIER 4 - attedance updated on-chain
     attendanceVerified[movementId][participant] = true;
     for (uint256 i = 0; i < validated.handshakeDigests.length; ++i) {
       verifiedHandshakeDigests[validated.handshakeDigests[i]] = true;
     }
 
+    // WALKTHROUGH VERIFIER 5 - trigger smart contract Reputation.sol rewardAttendance()
     reputation.rewardAttendance(participant, movementId);
 
     // Indexed off-chain by services/indexer
+
+    // WALKTHROUGH VERIFIER 6 - emit events for indexer.
     emit AttendanceVerified(
       movementId,
       participant,
