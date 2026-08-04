@@ -43,6 +43,8 @@ export class IndexerListener {
     this.syncing = true;
     try {
       const latest = await this.chain.getLatestBlockNumber();
+
+      // WALKTHROUGH INDEXER 2 - For simplicity, it will poll from 3 different smart contract, but the result is independent one another.
       const [attendance, movement, reputation] = await Promise.allSettled([
         this.syncAttendance(latest),
         this.syncMovement(latest),
