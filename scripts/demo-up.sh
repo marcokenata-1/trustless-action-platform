@@ -14,6 +14,7 @@ cleanup() {
   [ -n "$FRONTEND_PID" ] && kill "$FRONTEND_PID" 2>/dev/null
   [ -n "$INDEXER_PID" ] && kill "$INDEXER_PID" 2>/dev/null
   [ -n "$HARDHAT_PID" ] && kill "$HARDHAT_PID" 2>/dev/null
+  docker rm -f blockchain-container 2>/dev/null
   exit 0
 }
 trap cleanup INT TERM
@@ -38,6 +39,15 @@ echo
 
 echo "Syncing addresses into frontend/indexer .env files..."
 npx tsx scripts/sync-addresses.ts
+echo
+
+echo "Building and starting Vedro's backend (dynamic create-threshold API)..."
+docker rm -f blockchain-container > /dev/null 2>&1
+docker build -t trustless-action-platform-api backend/trustless-action-platform > /dev/null
+docker run -d --name blockchain-container -p 8003:8000 \
+  --env-file backend/trustless-action-platform/.env \
+  trustless-action-platform-api > /dev/null
+echo "Vedro's backend ready on :8003."
 echo
 
 echo "Starting indexer..."

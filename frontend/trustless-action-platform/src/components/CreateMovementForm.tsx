@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { parseEventLogs } from "viem";
 import uploadMovementWiki from "../lib/ipfs";
 import { useAccount, useWriteContract, usePublicClient, useReadContract } from "wagmi";
@@ -22,7 +23,9 @@ export function CreateMovementForm() {
 
   // createMovement()'s only revert path is the reputation gate, and it's a
   // bare revert() with no reason string — read these ourselves so we can
-  // tell that apart from "something else broke" and show real numbers
+  // tell that apart from "something else broke" and show real numbers.
+  // the threshold itself comes from Vedro's backend (his dynamic formula,
+  // not the on-chain keeper approach tried first)
   const { data: myReputation } = useReadContract({
     address: reputationAddress,
     abi: reputationAbi,
@@ -31,11 +34,15 @@ export function CreateMovementForm() {
     chainId: hardhatLocal.id,
     query: { enabled: !!address },
   });
-  const { data: createRequirement } = useReadContract({
-    address: movementAddress,
-    abi: movementAbi,
-    functionName: "createRequirement",
-    chainId: hardhatLocal.id,
+  const { data: createRequirement } = useQuery({
+    queryKey: ["create-threshold"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_API_URL}/movement/create`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to fetch create threshold");
+      return res.json() as Promise<number>;
+    },
   });
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
