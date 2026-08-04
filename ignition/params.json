@@ -3,6 +3,10 @@
     "initialGrant": "100",
     "attendanceReward": "50"
   },
+  "MovementModule": {
+    "initialCreateRequirement": "300",
+    "requirementUpdater": "0x0000000000000000000000000000000000000000"
+  },
   "PlatformModule": {
     "initialGrant": "100",
     "attendanceReward": "50",
