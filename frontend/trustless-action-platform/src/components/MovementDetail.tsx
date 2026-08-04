@@ -95,8 +95,8 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
         {isCommitted && movement.status === "Open" ? "Committed" : movement.status}
       </span>
       <p className="movement-due">
-        Tally {movement.tally}/{movement.threshold} · deadline block{" "}
-        {movement.due}
+        Tally {movement.tally}/{movement.threshold} · deadline: block #
+        {Number(movement.due).toLocaleString()}
       </p>
 
       <button

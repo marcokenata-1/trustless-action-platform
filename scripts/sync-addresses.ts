@@ -42,6 +42,11 @@ setEnvVar(
   "VITE_ATTENDANCE_VERIFIER_ADDRESS",
   attendanceVerifier,
 );
+setEnvVar(
+  "frontend/trustless-action-platform/.env",
+  "VITE_REPUTATION_ADDRESS",
+  reputation,
+);
 
 setEnvVar("services/indexer/.env", "MOVEMENT_ADDRESS", movement);
 setEnvVar("services/indexer/.env", "REPUTATION_ADDRESS", reputation);

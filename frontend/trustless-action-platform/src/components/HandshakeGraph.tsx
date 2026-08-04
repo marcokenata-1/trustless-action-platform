@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
 import {
   createPublicClient,
   createWalletClient,
@@ -12,6 +12,10 @@ import {
 } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import { movementAddress, movementAbi } from "../lib/movementContract";
+import {
+  attendanceVerifierAddress,
+  attendanceVerifierAbi,
+} from "../lib/attendanceVerifierContract";
 import { hardhatLocal } from "../lib/chains";
 import { syncIndexer } from "../lib/indexer";
 
@@ -118,7 +122,12 @@ export function HandshakeGraph({
   const { address: myAddress } = useAccount();
   const queryClient = useQueryClient();
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
+  const [claimingFor, setClaimingFor] = useState<string | null>(null);
   const isOpen = status === "Open";
+  // AttendanceVerifier.submitAttendance requires movement.isActive(), which
+  // only becomes true once threshold's been hit — mirrors that gate here
+  // instead of letting the click go straight to a bare-revert tx
+  const isActive = status === "Activated";
 
   const { data: commits, isLoading } = useQuery({
     queryKey: ["commits", movementId],
@@ -257,10 +266,16 @@ export function HandshakeGraph({
   }, []);
 
   function toggleSelect(address: string) {
-    setError(null);
     setSelected((prev) => {
-      if (prev.includes(address)) return prev.filter((a) => a !== address);
-      if (prev.length >= 2) return [prev[1], address]; // swap out the older pick
+      if (prev.includes(address)) {
+        setError(null);
+        return prev.filter((a) => a !== address);
+      }
+      if (prev.length >= 2) {
+        setError("Only 2 nodes at a time — deselect one first.");
+        return prev;
+      }
+      setError(null);
       return [...prev, address];
     });
   }
@@ -359,6 +374,49 @@ export function HandshakeGraph({
     }
   }
 
+  // two-step, mirrors what a real participant's wallet would do: first get
+  // the simulator to sign an EIP-712 Attendance struct on the participant's
+  // behalf (it holds the local dev keys), then submit that straight to
+  // AttendanceVerifier — this is the step that actually calls
+  // reputation.rewardAttendance, nothing before this moves reputation
+  async function claimAttendance(address: string) {
+    setError(null);
+    if (!isActive) {
+      setError(`Movement is ${status}, not Activated — attendance can't be claimed until it activates.`);
+      return;
+    }
+    setClaimingFor(address);
+    try {
+      const attestRes = await fetch(`${import.meta.env.VITE_SIMULATOR_URL}/simulate/attest`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ proofs: proofsFor(address) }),
+      });
+      const attestBody = await attestRes.json();
+      if (!attestRes.ok) throw new Error(attestBody.error ?? "Attestation failed");
+
+      const submitRes = await fetch(`${import.meta.env.VITE_SIMULATOR_URL}/submit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          proofs: attestBody.proofs,
+          participantSignature: attestBody.participantSignature,
+        }),
+      });
+      const submitBody = await submitRes.json();
+      if (!submitRes.ok) throw new Error(submitBody.error ?? "Attendance submission failed");
+
+      // reputation moved on-chain — refetch everything rather than chase
+      // down every query key that might show a stale number (the badge,
+      // create-requirement, this graph's own verified check, ...)
+      await queryClient.invalidateQueries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setClaimingFor(null);
+    }
+  }
+
   // works for any address, not just the connected wallet — each node's
   // own proof from each edge it's part of, since that's what actually
   // feeds an attendance submission, not the edge itself
@@ -392,14 +450,27 @@ export function HandshakeGraph({
     };
   }
 
-  // inspecting a clicked node shows THAT node's progress, not yours —
-  // only fall back to your own wallet when nothing is selected
-  const inspecting =
-    selected.length > 0
-      ? selected.map(attendanceStatusFor)
-      : myAddress
-        ? [attendanceStatusFor(myAddress)]
-        : [];
+  // attendance/reputation is checked per address on-chain, independent of
+  // who you've selected to shake hands with — show every participant's
+  // status and claim button, not just the (up to 2) currently selected
+  const inspecting = nodes.map((n) => attendanceStatusFor(n.address));
+
+  // one batched multicall for "has this inspected address already claimed
+  // attendance" — same pattern as MovementList's isCommitted check
+  const { data: verifiedResults } = useReadContracts({
+    contracts: inspecting.map(({ address }) => ({
+      address: attendanceVerifierAddress,
+      abi: attendanceVerifierAbi,
+      functionName: "attendanceVerified",
+      args: [BigInt(movementId), address as `0x${string}`],
+      chainId: hardhatLocal.id,
+    })),
+    query: { enabled: inspecting.length > 0 },
+  });
+  function alreadyClaimedFor(address: string) {
+    const index = inspecting.findIndex((i) => i.address === address);
+    return (verifiedResults?.[index]?.result as boolean | undefined) === true;
+  }
 
   if (isLoading) return <p className="movement-list-status">Loading participants...</p>;
   if (!commits || commits.length < 2) {
@@ -508,6 +579,20 @@ export function HandshakeGraph({
               <p className="movement-due" style={{ wordBreak: "break-all" }}>
                 proofsHash: {proof.proofsHash}
               </p>
+              {alreadyClaimedFor(address) ? (
+                <p className="movement-list-status">
+                  Attendance claimed — reputation awarded.
+                </p>
+              ) : (
+                <button
+                  className="movement-detail-join"
+                  onClick={() => claimAttendance(address)}
+                  disabled={claimingFor === address || !isActive}
+                  title={!isActive ? `Movement is ${status}, not Activated` : undefined}
+                >
+                  {claimingFor === address ? "Submitting..." : "Claim Attendance"}
+                </button>
+              )}
             </div>
           )}
         </div>

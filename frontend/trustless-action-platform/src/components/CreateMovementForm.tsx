@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { parseEventLogs } from "viem";
 import uploadMovementWiki from "../lib/ipfs";
-import { useAccount, useWriteContract, usePublicClient } from "wagmi";
+import { useAccount, useWriteContract, usePublicClient, useReadContract } from "wagmi";
 import { movementAddress, movementAbi } from "../lib/movementContract";
+import { reputationAddress, reputationAbi } from "../lib/reputationContract";
 import { hardhatLocal } from "../lib/chains";
 
 export function CreateMovementForm() {
@@ -18,6 +19,24 @@ export function CreateMovementForm() {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
+
+  // createMovement()'s only revert path is the reputation gate, and it's a
+  // bare revert() with no reason string — read these ourselves so we can
+  // tell that apart from "something else broke" and show real numbers
+  const { data: myReputation } = useReadContract({
+    address: reputationAddress,
+    abi: reputationAbi,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    chainId: hardhatLocal.id,
+    query: { enabled: !!address },
+  });
+  const { data: createRequirement } = useReadContract({
+    address: movementAddress,
+    abi: movementAbi,
+    functionName: "createRequirement",
+    chainId: hardhatLocal.id,
+  });
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -75,7 +94,17 @@ export function CreateMovementForm() {
       }
       setCreatedId(Number(createdEvent.args.movementId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const message = err instanceof Error ? err.message : "";
+      // createMovement()'s only revert() is the reputation gate — a bare
+      // revert with no reason string, so this substring is the only way
+      // to tell "not enough reputation" apart from any other failure
+      if (message.includes("reverted without a reason string")) {
+        setError(
+          `You need at least ${createRequirement?.toString() ?? "?"} reputation to create a movement (you have ${myReputation?.toString() ?? "0"}).`,
+        );
+      } else {
+        setError(message || "Something went wrong");
+      }
     } finally {
       setIsSubmitting(false);
     }

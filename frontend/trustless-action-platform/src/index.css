@@ -70,7 +70,10 @@ h1,
 h2 {
   font-family: var(--heading);
   font-weight: 500;
-  color: var(--text-h);
+  /* background is hardcoded #fff above regardless of OS theme, so this
+     needs to stay hardcoded dark too — var(--text-h) flips to near-white
+     under prefers-color-scheme: dark and goes invisible on the white bg */
+  color: #08060d;
 }
 
 h1 {
