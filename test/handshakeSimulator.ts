@@ -178,7 +178,7 @@ describe("handshake simulator API", function () {
     expect(response.body.error).to.match(/Invalid peer signature/);
   });
 
-  it("creates one mutual session for concurrent reversed requests", async function () {
+  it("concurrent handshake requests only create one pair of proofs", async function () {
     const fixture = await deployFixture();
     const partyA = await fixture.participant.getAddress();
     const partyB = await fixture.peers[0].getAddress();
