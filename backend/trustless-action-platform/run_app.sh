@@ -17,8 +17,7 @@ trap cleanup SIGINT
 set -e
 
 echo "🔄 Rebuilding and restarting..."
-docker compose build --no-cache
-docker compose up -d
+docker compose up --build
 
 
 echo "✅ Application is running on http://127.0.0.1:${port}"

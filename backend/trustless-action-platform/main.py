@@ -1,13 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import users, movements, conn
-from database import base, engine
-
-import models
+from routers import movements, conn
 
 ROUTERS = (
-    users.router,
     movements.router,
     conn.router
 )
@@ -36,7 +32,5 @@ def create_app() -> FastAPI:
     
     return app
 
-
-base.metadata.create_all(bind=engine)
 
 app = create_app()
