@@ -6,12 +6,14 @@ cd "$(dirname "$0")/.."
 
 HARDHAT_PID=""
 INDEXER_PID=""
+SIMULATOR_PID=""
 FRONTEND_PID=""
 
 cleanup() {
   echo ""
   echo "Shutting everything down..."
   [ -n "$FRONTEND_PID" ] && kill "$FRONTEND_PID" 2>/dev/null
+  [ -n "$SIMULATOR_PID" ] && kill "$SIMULATOR_PID" 2>/dev/null
   [ -n "$INDEXER_PID" ] && kill "$INDEXER_PID" 2>/dev/null
   [ -n "$HARDHAT_PID" ] && kill "$HARDHAT_PID" 2>/dev/null
   docker rm -f blockchain-container 2>/dev/null
@@ -53,6 +55,10 @@ echo
 echo "Starting indexer..."
 node --import tsx --env-file=services/indexer/.env services/indexer/server.ts &
 INDEXER_PID=$!
+
+echo "Starting simulator..."
+node --import tsx --env-file=services/simulator/.env services/simulator/server.ts &
+SIMULATOR_PID=$!
 
 echo "Starting frontend..."
 (cd frontend/trustless-action-platform && npm run dev) &
