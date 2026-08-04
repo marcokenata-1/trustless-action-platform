@@ -2,8 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import type { MovementResponse } from "./MovementList";
 import { movementAddress, movementAbi } from "../lib/movementContract";
+import { hardhatLocal } from "../lib/chains";
+import { HandshakeGraph } from "./HandshakeGraph";
+import { syncIndexer } from "../lib/indexer";
 
 type MovementManifest = {
+  title: string;
   description: string;
   images: string[];
   media: string[];
@@ -14,49 +18,69 @@ type MovementDetailProps = {
   onBack: () => void;
 };
 
-export function MovementDetail({ movement, onBack }: MovementDetailProps) {
+function gatewayUrl(cid: string) {
+  return `https://ipfs.io/ipfs/${cid.replace(/^ipfs:\/\//, "")}`;
+}
+
+export function MovementDetail({ movement: initial, onBack }: MovementDetailProps) {
+  const queryClient = useQueryClient();
+
+  // the prop is a snapshot from whenever this movement was selected from
+  // the list — invalidating ["movements"] elsewhere doesn't touch it, so
+  // tally/status here would go stale after joining/adding participants.
+  // fetch this one movement live instead, falling back to the snapshot
+  // only for the very first paint
+  const { data: live } = useQuery({
+    queryKey: ["movement", initial.movementId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${import.meta.env.VITE_INDEXER_URL}/movements/${initial.movementId}`,
+      );
+      if (!res.ok) throw new Error("Failed to fetch movement");
+      const data = (await res.json()) as { movement: MovementResponse };
+      return data.movement;
+    },
+  });
+  const movement = live ?? initial;
+
   const {
     data: manifest,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["manifest", movement.ipfs_id],
+    queryKey: ["manifest", movement.cid],
     queryFn: async () => {
-      const res = await fetch(
-        `https://gateway.pinata.cloud/ipfs/${movement.ipfs_id}`,
-      );
+      const res = await fetch(gatewayUrl(movement.cid));
       if (!res.ok) throw new Error("Failed to fetch movement content");
       return res.json() as Promise<MovementManifest>;
     },
-    enabled: !!movement.ipfs_id,
+    retry: false,
   });
 
   const { address } = useAccount();
-  const queryClient = useQueryClient();
   const { writeContractAsync, isPending: isJoining } = useWriteContract();
 
-  const onchainId = movement.onchain_id;
-  // reading straight from the contract here instead of asking the backend,
-  // want this to be right the instant you click, not whatever the indexer
-  // last saw
+  const onchainId = BigInt(movement.movementId);
   const { data: isCommitted, refetch: refetchIsCommitted } = useReadContract({
     address: movementAddress,
     abi: movementAbi,
     functionName: "isCommitted",
-    args:
-      onchainId !== null && address ? [BigInt(onchainId), address] : undefined,
-    query: { enabled: onchainId !== null && !!address },
+    args: address ? [onchainId, address] : undefined,
+    chainId: hardhatLocal.id,
+    query: { enabled: !!address },
   });
 
   async function handleJoin() {
-    if (onchainId === null) return;
     await writeContractAsync({
       address: movementAddress,
       abi: movementAbi,
       functionName: "commit",
-      args: [BigInt(onchainId)],
+      args: [onchainId],
+      chainId: hardhatLocal.id,
     });
     await refetchIsCommitted();
+    await syncIndexer();
+    await queryClient.invalidateQueries({ queryKey: ["movement", movement.movementId] });
     await queryClient.invalidateQueries({ queryKey: ["movements"] });
   }
 
@@ -66,31 +90,24 @@ export function MovementDetail({ movement, onBack }: MovementDetailProps) {
         ← Back
       </button>
 
-      <h2>{movement.title}</h2>
-      <span className="movement-status">{movement.status}</span>
+      <h2>{manifest?.title ?? `Movement #${movement.movementId}`}</h2>
+      <span className="movement-status">
+        {isCommitted && movement.status === "Open" ? "Committed" : movement.status}
+      </span>
       <p className="movement-due">
-        Due {new Date(movement.due).toLocaleString()}
+        Tally {movement.tally}/{movement.threshold} · deadline block{" "}
+        {movement.due}
       </p>
 
-      {onchainId === null ? (
-        <p className="movement-list-status">
-          Not yet on-chain — joining isn't available for this movement.
-        </p>
-      ) : (
-        <button
-          className="movement-detail-join"
-          onClick={handleJoin}
-          disabled={!address || isJoining || isCommitted === true}
-        >
-          {isCommitted ? "Joined" : isJoining ? "Joining..." : "Join"}
-        </button>
-      )}
+      <button
+        className="movement-detail-join"
+        onClick={handleJoin}
+        disabled={!address || isJoining || isCommitted === true || movement.status !== "Open"}
+      >
+        {isCommitted ? "Joined" : isJoining ? "Joining..." : "Join"}
+      </button>
 
-      {!movement.ipfs_id ? (
-        <p className="movement-list-status">
-          No content uploaded for this movement.
-        </p>
-      ) : isLoading ? (
+      {isLoading ? (
         <p className="movement-list-status">Loading content...</p>
       ) : error ? (
         <p className="form-error">{(error as Error).message}</p>
@@ -102,7 +119,7 @@ export function MovementDetail({ movement, onBack }: MovementDetailProps) {
               {manifest.images.map((cid) => (
                 <img
                   key={cid}
-                  src={`https://gateway.pinata.cloud/ipfs/${cid}`}
+                  src={gatewayUrl(cid)}
                   alt={manifest.description}
                 />
               ))}
@@ -110,6 +127,10 @@ export function MovementDetail({ movement, onBack }: MovementDetailProps) {
           )}
         </>
       ) : null}
+
+      {isCommitted && (
+        <HandshakeGraph movementId={movement.movementId} status={movement.status} />
+      )}
     </div>
   );
 }

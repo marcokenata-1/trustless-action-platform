@@ -1,4 +1,5 @@
 type MovementManifest = {
+  title: string;
   description: string;
   images: string[];
   media: string[];
@@ -47,18 +48,20 @@ async function pinJSON(movementManifest: MovementManifest): Promise<string> {
 
 function buildMovementManifest(
   images: string[],
+  title: string,
   description: string,
   media: string[] = [],
 ): MovementManifest {
-  return { description, images, media };
+  return { title, description, images, media };
 }
 
 export default async function uploadMovementWiki(
   imageFiles: File[],
+  title: string,
   description: string,
 ): Promise<string> {
   const imageCids = await Promise.all(imageFiles.map(pinFile));
-  const manifest = buildMovementManifest(imageCids, description);
+  const manifest = buildMovementManifest(imageCids, title, description);
   const manifestCid = await pinJSON(manifest);
   return manifestCid;
 }

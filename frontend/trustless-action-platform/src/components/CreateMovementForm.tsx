@@ -1,13 +1,9 @@
 import { useState } from "react";
 import { parseEventLogs } from "viem";
 import uploadMovementWiki from "../lib/ipfs";
-import {
-  useSignMessage,
-  useAccount,
-  useWriteContract,
-  usePublicClient,
-} from "wagmi";
+import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 import { movementAddress, movementAbi } from "../lib/movementContract";
+import { hardhatLocal } from "../lib/chains";
 
 export function CreateMovementForm() {
   const [title, setTitle] = useState("");
@@ -17,8 +13,8 @@ export function CreateMovementForm() {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdId, setCreatedId] = useState<number | null>(null);
 
-  const { signMessageAsync } = useSignMessage();
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
@@ -32,12 +28,13 @@ export function CreateMovementForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setCreatedId(null);
     setIsSubmitting(true);
 
     try {
       if (!address) throw new Error("Connect your wallet first");
 
-      const manifestCid = await uploadMovementWiki(imageFiles, description);
+      const manifestCid = await uploadMovementWiki(imageFiles, title, description);
 
       // contract wants deadline in days, we only have a datetime picker,
       // so just round up to whole days from now (min 1, can't backdate)
@@ -46,55 +43,37 @@ export function CreateMovementForm() {
         Math.max(1, Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000)),
       );
 
-      // has to go on-chain first since we need the real movementId back
-      // before the backend row makes any sense
+      // straight to the contract, no backend involved — the chain is the
+      // only source of truth for movements now, browsing reads from the
+      // indexer, not an API we write to
+      // pin the chain explicitly — otherwise wagmi just uses whatever
+      // network the wallet happens to be on, which could be real mainnet
       const createTxHash = await writeContractAsync({
         address: movementAddress,
         abi: movementAbi,
         functionName: "createMovement",
         args: [BigInt(threshold), deadlineDays, manifestCid],
+        chainId: hardhatLocal.id,
       });
 
       const receipt = await publicClient!.waitForTransactionReceipt({
         hash: createTxHash,
       });
+      if (receipt.status !== "success") {
+        throw new Error(
+          "createMovement transaction reverted — check the local hardhat node is still running the contract you expect",
+        );
+      }
 
       const [createdEvent] = parseEventLogs({
         abi: movementAbi,
         eventName: "MovementCreated",
         logs: receipt.logs,
       });
-      const onchainId = Number(createdEvent.args.movementId);
-
-      const message = "Sign this message to authenticate";
-      const signature = await signMessageAsync({ message });
-
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_API_URL}/movement/create`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            address: address,
-            signature: signature,
-          },
-          body: JSON.stringify({
-            title,
-            due: dueDate.toISOString(),
-            ipfs_cid: manifestCid,
-            address,
-            signature,
-            onchain_id: onchainId,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        const errBody = await response.json();
-        throw new Error(errBody.detail ?? "Failed to create movement");
+      if (!createdEvent) {
+        throw new Error("MovementCreated event not found in transaction receipt");
       }
-
-      // success — clear form, show confirmation, etc.
+      setCreatedId(Number(createdEvent.args.movementId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -167,6 +146,9 @@ export function CreateMovementForm() {
         {isSubmitting ? "Creating..." : "Create Movement"}
       </button>
       {error && <p className="form-error">{error}</p>}
+      {createdId !== null && (
+        <p className="file-count">Created on-chain — movement #{createdId}</p>
+      )}
     </form>
   );
 }

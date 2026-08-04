@@ -7,7 +7,7 @@ import { MovementList } from "./components/MovementList";
 import type { MovementResponse } from "./components/MovementList";
 import { MovementDetail } from "./components/MovementDetail";
 
-type Tab = "create" | "list";
+type Tab = "create" | "list" | "joined";
 
 function App() {
   const { isConnected } = useAccount();
@@ -27,6 +27,15 @@ function App() {
           }}
         >
           Movements
+        </button>
+        <button
+          className={tab === "joined" ? "active" : ""}
+          onClick={() => {
+            setTab("joined");
+            setSelectedMovement(null);
+          }}
+        >
+          Joined
         </button>
         <button
           className={tab === "create" ? "active" : ""}
@@ -50,7 +59,10 @@ function App() {
           onBack={() => setSelectedMovement(null)}
         />
       ) : (
-        <MovementList onSelect={setSelectedMovement} />
+        <MovementList
+          onSelect={setSelectedMovement}
+          filter={tab === "joined" ? "joined" : "unjoined"}
+        />
       )}
     </>
   );

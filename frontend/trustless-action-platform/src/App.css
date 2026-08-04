@@ -200,3 +200,70 @@
     color: #e5484d;
   }
 }
+
+.handshake-graph {
+  max-width: 480px;
+  margin: 24px auto 0;
+  padding: 0 24px;
+  text-align: left;
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: #08060d;
+  }
+
+  svg {
+    display: block;
+    border: 1px solid #e5e4e7;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .handshake-edge {
+    stroke: #aa3bff;
+    stroke-width: 2;
+    opacity: 0.5;
+  }
+
+  .handshake-node {
+    fill: #fff;
+    stroke: #6b6375;
+    stroke-width: 2;
+  }
+
+  .handshake-node-me {
+    fill: #aa3bff;
+    stroke: #aa3bff;
+  }
+
+  .handshake-node-selected {
+    fill: #fff;
+    stroke: #aa3bff;
+    stroke-width: 3;
+  }
+
+  .handshake-label {
+    font-size: 10px;
+    fill: #6b6375;
+  }
+
+  .movement-detail-join {
+    margin-top: 10px;
+  }
+}
+
+.attendance-proof {
+  max-width: 480px;
+  margin: 16px auto 0;
+  padding: 16px 24px;
+  text-align: left;
+  border: 1px solid #aa3bff;
+  border-radius: 8px;
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: #08060d;
+  }
+}

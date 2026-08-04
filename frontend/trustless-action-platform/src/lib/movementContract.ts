@@ -1,6 +1,7 @@
-// TODO: this is just my local hardhat deployment, address will change every
-// time someone redeploys. swap once we have a real address to point at.
-export const movementAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0" as const;
+// reads from .env instead of a hardcoded literal — every `npx hardhat node`
+// restart changes this address, run `npm run sync-addresses` after each
+// fresh deploy instead of hand-editing this file
+export const movementAddress = import.meta.env.VITE_MOVEMENT_ADDRESS;
 
 export const movementAbi = [
   {

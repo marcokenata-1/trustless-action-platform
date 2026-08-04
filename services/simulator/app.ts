@@ -12,6 +12,7 @@ import { asyncRoute, createErrorHandler, sendJson } from "../../shared/http.js";
 import { signMutualHandshake } from "./handshake/index.js";
 import type { SimulatorRuntime } from "./runtime/index.js";
 import {
+  handshakesQuerySchema,
   parse,
   simulateAttestSchema,
   simulateHandshakeSchema,
@@ -28,10 +29,33 @@ export function createSimulatorApp(
 ) {
   const app = express();
   app.use(express.json({ limit: "256kb" }));
+  // frontend runs on a different origin (vite dev server) — no browser
+  // client can call this without it
+  app.use((request, response, next) => {
+    response.header("Access-Control-Allow-Origin", "*");
+    response.header("Access-Control-Allow-Headers", "Content-Type");
+    response.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    if (request.method === "OPTIONS") {
+      response.sendStatus(204);
+      return;
+    }
+    next();
+  });
 
   app.get("/health", (_request, response) => {
     response.json({ status: "ok" });
   });
+
+  app.get(
+    "/handshakes",
+    asyncRoute(async (request, response) => {
+      const query = parse(handshakesQuerySchema, {
+        movementId: request.query.movementId,
+      });
+      const sessions = handshakeStore.listByMovement(query.movementId);
+      sendJson(response, { sessions });
+    }),
+  );
 
   app.post(
     "/simulate/handshake",
