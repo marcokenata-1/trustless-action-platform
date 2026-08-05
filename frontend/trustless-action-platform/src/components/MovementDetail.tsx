@@ -23,15 +23,6 @@ function gatewayUrl(cid: string) {
   return `https://ipfs.io/ipfs/${cid.replace(/^ipfs:\/\//, "")}`;
 }
 
-// the contract only stores whole days (deadlineBlock), so it can't hold the
-// exact datetime picked in the form — that exact value is stashed in the
-// manifest instead (see CreateMovementForm/ipfs.ts) and read from there
-// below. this block-based version is only a fallback for movements created
-// before that field existed, and it's an estimate, not the real value —
-// Movement.sol computes deadlineBlock as createdBlock + deadlineDays * 7200,
-// so anchoring on the real creation block's timestamp and adding
-// deadlineDays back matches that math, but still loses whatever time-of-day
-// got rounded away by CreateMovementForm's Math.ceil at creation time
 const BLOCKS_PER_DAY = 7200;
 function estimateDeadlineFromBlock(
   deadlineBlock: bigint,
@@ -47,11 +38,6 @@ function estimateDeadlineFromBlock(
 export function MovementDetail({ movement: initial, onBack }: MovementDetailProps) {
   const queryClient = useQueryClient();
 
-  // the prop is a snapshot from whenever this movement was selected from
-  // the list — invalidating ["movements"] elsewhere doesn't touch it, so
-  // tally/status here would go stale after joining/adding participants.
-  // fetch this one movement live instead, falling back to the snapshot
-  // only for the very first paint
   const { data: live } = useQuery({
     queryKey: ["movement", initial.movementId],
     queryFn: async () => {
@@ -81,8 +67,6 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
 
   const { address } = useAccount();
   const { writeContractAsync, isPending: isJoining } = useWriteContract();
-  // only need the block lookup as a fallback for movements without
-  // manifest.due — skip the RPC call otherwise
   const { data: createdBlockData } = useBlock({
     blockNumber: BigInt(movement.createdBlock),
     chainId: hardhatLocal.id,
@@ -140,7 +124,9 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
       <button
         className="movement-detail-join"
         onClick={handleJoin}
-        disabled={!address || isJoining || isCommitted === true || movement.status !== "Open"}
+        // commit() now accepts joiners past threshold too — matches
+        // Movement.sol, which only actually blocks on Cancelled
+        disabled={!address || isJoining || isCommitted === true || movement.status === "Cancelled"}
       >
         {isCommitted ? "Joined" : isJoining ? "Joining..." : "Join"}
       </button>

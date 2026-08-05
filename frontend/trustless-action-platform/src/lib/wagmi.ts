@@ -4,7 +4,8 @@ import { hardhatLocal } from "./chains";
 
 export const config = createConfig({
   chains: [hardhatLocal],
-  connectors: [injected()],
+  connectors: [injected({ target: "metaMask" })],
+  multiInjectedProviderDiscovery: false,
   transports: {
     [hardhatLocal.id]: http(),
   },

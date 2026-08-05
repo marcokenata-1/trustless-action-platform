@@ -19,18 +19,11 @@ import {
 import { hardhatLocal } from "../lib/chains";
 import { syncIndexer } from "../lib/indexer";
 
-// standard hardhat/anvil dev mnemonic — same well-known local-only test
-// accounts we've used via curl/scripts all session, derived properly
-// instead of hand-copying private keys (error-prone, and this is provably
-// correct: mnemonicToAccount(..., {addressIndex:0}) really does resolve to
-// 0xf39Fd6...92266, the account #0 hardhat itself prints)
+
 const LOCAL_DEV_MNEMONIC =
   "test test test test test test test test test test test junk";
 const MAX_LOCAL_ACCOUNTS = 20;
 
-// mirrors shared/attendance.ts — not importing it directly since that's a
-// Node module outside Vite's project root (../../../shared), and this is
-// small enough to keep in sync by hand rather than fight the fs boundary
 const HANDSHAKE_TYPES = {
   Handshake: [
     { name: "movementId", type: "uint256" },
@@ -40,7 +33,7 @@ const HANDSHAKE_TYPES = {
     { name: "timestamp", type: "uint64" },
   ],
 } as const;
-const REQUIRED_PEER_COUNT = 3; // AttendanceVerifier.MIN_REQUIRED_PEER_COUNT
+const REQUIRED_PEER_COUNT = 3; 
 
 type HandshakeProof = {
   movementId: string;
@@ -123,7 +116,9 @@ export function HandshakeGraph({
   const queryClient = useQueryClient();
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
   const [claimingFor, setClaimingFor] = useState<string | null>(null);
-  const isOpen = status === "Open";
+  // commit() now accepts joiners past threshold too — only actually
+  // blocks on Cancelled, matches Movement.sol
+  const canJoin = status !== "Cancelled";
   // AttendanceVerifier.submitAttendance requires movement.isActive(), which
   // only becomes true once threshold's been hit — mirrors that gate here
   // instead of letting the click go straight to a bare-revert tx
@@ -141,9 +136,6 @@ export function HandshakeGraph({
     },
   });
 
-  // the simulator persists every handshake permanently (it's idempotent —
-  // get-or-create) — fetch real history instead of starting empty every
-  // time this page loads, so progress survives navigating away and back
   const { data: handshakeSessions } = useQuery({
     queryKey: ["handshakes", movementId],
     queryFn: async () => {
@@ -170,8 +162,6 @@ export function HandshakeGraph({
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
 
-  // seed nodes from real committers whenever the list changes — positions
-  // start randomised, physics loop below settles them into place
   useEffect(() => {
     if (!commits) return;
     const addresses = [...new Set(commits.map((c) => c.committer))];
@@ -197,8 +187,6 @@ export function HandshakeGraph({
     edgesRef.current = edges;
   }, [edges]);
 
-  // simple force-directed layout — repulsion between every pair, spring
-  // along edges, mild pull to center. no library, small N, runs fine
   useEffect(() => {
     let frame: number;
     function tick() {
@@ -251,10 +239,6 @@ export function HandshakeGraph({
           totalSpeed += Math.abs(n.vx) + Math.abs(n.vy);
         }
 
-        // stop nudging positions once the layout has basically settled —
-        // otherwise nodes keep drifting forever (CENTER_PULL never hits
-        // exactly zero) and a second click can miss a node that's moved
-        // since the first click
         if (totalSpeed > 0.05) {
           setNodes(next);
         }
@@ -311,10 +295,8 @@ export function HandshakeGraph({
 
   async function addParticipant() {
     setError(null);
-    if (!isOpen) {
-      setError(
-        `Movement is ${status}, not Open — no more participants can join.`,
-      );
+    if (!canJoin) {
+      setError(`Movement is ${status} — no more participants can join.`);
       return;
     }
 
@@ -325,10 +307,6 @@ export function HandshakeGraph({
         transport: http(),
       });
 
-      // check the chain directly, not the indexer's cached commit list —
-      // that can lag a click or two behind reality (e.g. right after a
-      // previous add), and picking an already-committed account here
-      // means a guaranteed revert instead of a clean "all full" message
       let account = null;
       for (let i = 0; i < MAX_LOCAL_ACCOUNTS; i++) {
         const candidate = mnemonicToAccount(LOCAL_DEV_MNEMONIC, { addressIndex: i });
@@ -374,11 +352,6 @@ export function HandshakeGraph({
     }
   }
 
-  // two-step, mirrors what a real participant's wallet would do: first get
-  // the simulator to sign an EIP-712 Attendance struct on the participant's
-  // behalf (it holds the local dev keys), then submit that straight to
-  // AttendanceVerifier — this is the step that actually calls
-  // reputation.rewardAttendance, nothing before this moves reputation
   async function claimAttendance(address: string) {
     setError(null);
     if (!isActive) {
@@ -406,9 +379,6 @@ export function HandshakeGraph({
       const submitBody = await submitRes.json();
       if (!submitRes.ok) throw new Error(submitBody.error ?? "Attendance submission failed");
 
-      // reputation moved on-chain — refetch everything rather than chase
-      // down every query key that might show a stale number (the badge,
-      // create-requirement, this graph's own verified check, ...)
       await queryClient.invalidateQueries();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -417,9 +387,6 @@ export function HandshakeGraph({
     }
   }
 
-  // works for any address, not just the connected wallet — each node's
-  // own proof from each edge it's part of, since that's what actually
-  // feeds an attendance submission, not the edge itself
   function proofsFor(address: string): HandshakeProof[] {
     return edges
       .filter((e) => e.a === address || e.b === address)
@@ -449,14 +416,8 @@ export function HandshakeGraph({
       },
     };
   }
-
-  // attendance/reputation is checked per address on-chain, independent of
-  // who you've selected to shake hands with — show every participant's
-  // status and claim button, not just the (up to 2) currently selected
   const inspecting = nodes.map((n) => attendanceStatusFor(n.address));
 
-  // one batched multicall for "has this inspected address already claimed
-  // attendance" — same pattern as MovementList's isCommitted check
   const { data: verifiedResults } = useReadContracts({
     contracts: inspecting.map(({ address }) => ({
       address: attendanceVerifierAddress,
@@ -557,7 +518,7 @@ export function HandshakeGraph({
         className="movement-detail-join"
         onClick={addParticipant}
         disabled={isAddingParticipant}
-        title={!isOpen ? `Movement is ${status}, not Open` : undefined}
+        title={!canJoin ? `Movement is ${status}` : undefined}
       >
         {isAddingParticipant ? "Joining..." : "+ Add Participant"}
       </button>

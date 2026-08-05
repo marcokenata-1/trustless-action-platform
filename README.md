@@ -15,20 +15,16 @@ npm test
 
 ## One-command local demo
 
-Requires ports `8545`, `3001`, and `3002` free (stop any existing Hardhat node /
-simulator / indexer first):
+Requires ports `8545`, `3001`, `3002`, `5173`, and `8003` free (stop any
+existing Hardhat node / simulator / indexer / frontend / backend first):
 
 ```shell
-npm run demo:e2e
-# optional: show Hardhat / simulator / indexer process logs
-VERBOSE=1 npm run demo:e2e
-# or
-npm run demo:e2e -- --verbose
+npm run demo:up
 ```
 
-This compiles contracts, starts Hardhat node, deploys `AttendanceDemo`, starts
-simulator + indexer, runs handshake + attest + submit + index sync, then shuts
-everything down.
+This starts a fresh Hardhat node, deploys `Attendance`, syncs contract
+addresses everywhere, builds and starts the off-chain backend, and starts the
+indexer, simulator, and frontend. Ctrl+C shuts everything down together.
 
 If `hardhat node` fails with `Failed to parse build info: missing field contracts`,
 run `npx hardhat clean && npx hardhat compile` once, then retry.
@@ -41,7 +37,7 @@ npx hardhat node
 
 ## Terminal 2 — deploy AttendanceVerifier demo module
 
-npx hardhat ignition deploy ignition/modules/AttendanceDemo.ts --network localhost
+npx hardhat ignition deploy ignition/modules/Attendance.ts --network localhost
 
 ## Simulator env
 

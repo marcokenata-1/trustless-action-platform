@@ -1,8 +1,5 @@
-// same deal as movementContract.ts — address comes from .env, run
-// `npm run sync-addresses` after every fresh deploy
 export const reputationAddress = import.meta.env.VITE_REPUTATION_ADDRESS;
 
-// just the reads the reputation badge needs, not the full contract
 export const reputationAbi = [
   {
     "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
@@ -27,6 +24,20 @@ export const reputationAbi = [
       { "internalType": "uint256", "name": "average", "type": "uint256" }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "account", "type": "address" }],
+    "name": "isRegistered",
+    "outputs": [{ "internalType": "bool", "name": "registered", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "register",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ] as const;

@@ -75,17 +75,18 @@ contract Movement {
 
     function commit(uint256 movementId) external {
 
-        //check if movement is open,
+        //check if movement is open or already activated (not cancelled),
         //check if caller hasn't already committed.
         //check if deadline has passed.
         //if all passed then:
         //add user address to committers, and set committed mapping for user to true.
         //increment tally.
-        //check if tally has passed threshold, if so change status to activated.
+        //check if tally has passed threshold for the first time, if so change status to activated.
+        //participants keep joining past threshold — activation doesn't cap them.
         //emit committed.
 
         MovementData storage thisMovement = movements[movementId];
-        if (thisMovement.status != Status.Open) revert();
+        if (thisMovement.status != Status.Open && thisMovement.status != Status.Activated) revert();
 
         bool senderHasCommitted = committed[movementId][msg.sender];
         if (senderHasCommitted) revert();
@@ -97,7 +98,10 @@ contract Movement {
 
         thisMovement.currentTally++;
 
-        if (thisMovement.currentTally >= thisMovement.threshold) {
+        if (
+            thisMovement.status == Status.Open &&
+            thisMovement.currentTally >= thisMovement.threshold
+        ) {
             thisMovement.status = Status.Activated;
             emit MovementActivated(movementId);
         }

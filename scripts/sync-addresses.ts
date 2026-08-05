@@ -1,6 +1,3 @@
-// Run after every fresh `npx hardhat ignition deploy ignition/modules/AttendanceDemo.ts
-// --network localhost` — reads the addresses ignition just deployed and pushes them
-// into the .env files that actually consume them, instead of hand-editing 3 files.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const deploymentPath =
@@ -16,9 +13,9 @@ const addresses = JSON.parse(readFileSync(deploymentPath, "utf-8")) as Record<
   string
 >;
 
-const reputation = addresses["AttendanceDemo#Reputation"];
-const movement = addresses["AttendanceDemo#Movement"];
-const attendanceVerifier = addresses["AttendanceDemo#AttendanceVerifier"];
+const reputation = addresses["ReputationModule#Reputation"];
+const movement = addresses["MovementModule#Movement"];
+const attendanceVerifier = addresses["Attendance#AttendanceVerifier"];
 
 function setEnvVar(path: string, key: string, value: string) {
   let content = existsSync(path) ? readFileSync(path, "utf-8") : "";
