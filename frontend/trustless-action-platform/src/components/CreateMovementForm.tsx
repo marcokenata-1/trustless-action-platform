@@ -11,7 +11,7 @@ export function CreateMovementForm() {
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [description, setDescription] = useState("");
-  const [threshold, setThreshold] = useState("3"); // just a sane default, no real basis for 3
+  const [threshold, setThreshold] = useState("4"); // 4 is the practical floor — see min on the input below
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,9 +103,15 @@ export function CreateMovementForm() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       // createMovement()'s only revert() is the reputation gate — a bare
-      // revert with no reason string, so this substring is the only way
-      // to tell "not enough reputation" apart from any other failure
-      if (message.includes("reverted without a reason string")) {
+      // revert with no reason string. MetaMask can't run eth_estimateGas
+      // against a call that's going to revert, so instead of surfacing
+      // that cleanly it falls back to a hardcoded 21,000,000 gas guess,
+      // which then trips hardhat's lower gas cap — same underlying cause,
+      // different error text depending on which path submitted the tx
+      if (
+        message.includes("reverted without a reason string") ||
+        message.includes("exceeds transaction gas cap")
+      ) {
         setError(
           `You need at least ${createRequirement?.toString() ?? "?"} reputation to create a movement (you have ${myReputation?.toString() ?? "0"}).`,
         );
@@ -155,7 +161,10 @@ export function CreateMovementForm() {
         <input
           id="movement-threshold"
           type="number"
-          min={1}
+          // below 4, nobody can ever hit 3 distinct peer handshakes to
+          // claim attendance (AttendanceVerifier.MIN_REQUIRED_PEER_COUNT
+          // is 3, and you can't count yourself as your own peer)
+          min={4}
           value={threshold}
           onChange={(e) => setThreshold(e.target.value)}
           required
