@@ -20,7 +20,7 @@ cache = {
     "threshold" : 0,
     "last_updated": 0,
 }
-cache_ttl = 300 # Set cache time in 300 seconds
+cache_ttl = 10 # ponytail: shrunk from 300 for demo visibility, bump back up before real deployment
 
 def get_dynamic_threshold(
     w3 : Web3 = Depends(get_web3),

@@ -140,7 +140,9 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
       <button
         className="movement-detail-join"
         onClick={handleJoin}
-        disabled={!address || isJoining || isCommitted === true || movement.status !== "Open"}
+        // commit() now accepts joiners past threshold too — matches
+        // Movement.sol, which only actually blocks on Cancelled
+        disabled={!address || isJoining || isCommitted === true || movement.status === "Cancelled"}
       >
         {isCommitted ? "Joined" : isJoining ? "Joining..." : "Join"}
       </button>

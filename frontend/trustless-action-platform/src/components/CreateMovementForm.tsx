@@ -21,11 +21,6 @@ export function CreateMovementForm() {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  // createMovement()'s only revert path is the reputation gate, and it's a
-  // bare revert() with no reason string — read these ourselves so we can
-  // tell that apart from "something else broke" and show real numbers.
-  // the threshold itself comes from the off-chain backend's dynamic
-  // formula, not the on-chain keeper approach tried first
   const { data: myReputation } = useReadContract({
     address: reputationAddress,
     abi: reputationAbi,
@@ -62,20 +57,11 @@ export function CreateMovementForm() {
 
       const manifestCid = await uploadMovementWiki(imageFiles, title, description, due);
 
-      // contract wants deadline in days, we only have a datetime picker,
-      // so just round up to whole days from now (min 1, can't backdate) —
-      // the exact due datetime itself is preserved in the manifest above,
-      // this rounded version is only what actually gates the contract
       const dueDate = new Date(due);
       const deadlineDays = BigInt(
         Math.max(1, Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000)),
       );
 
-      // straight to the contract, no backend involved — the chain is the
-      // only source of truth for movements now, browsing reads from the
-      // indexer, not an API we write to
-      // pin the chain explicitly — otherwise wagmi just uses whatever
-      // network the wallet happens to be on, which could be real mainnet
       const createTxHash = await writeContractAsync({
         address: movementAddress,
         abi: movementAbi,
@@ -104,12 +90,6 @@ export function CreateMovementForm() {
       setCreatedId(Number(createdEvent.args.movementId));
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
-      // createMovement()'s only revert() is the reputation gate — a bare
-      // revert with no reason string. MetaMask can't run eth_estimateGas
-      // against a call that's going to revert, so instead of surfacing
-      // that cleanly it falls back to a hardcoded 21,000,000 gas guess,
-      // which then trips hardhat's lower gas cap — same underlying cause,
-      // different error text depending on which path submitted the tx
       if (
         message.includes("reverted without a reason string") ||
         message.includes("exceeds transaction gas cap")

@@ -123,7 +123,9 @@ export function HandshakeGraph({
   const queryClient = useQueryClient();
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
   const [claimingFor, setClaimingFor] = useState<string | null>(null);
-  const isOpen = status === "Open";
+  // commit() now accepts joiners past threshold too — only actually
+  // blocks on Cancelled, matches Movement.sol
+  const canJoin = status !== "Cancelled";
   // AttendanceVerifier.submitAttendance requires movement.isActive(), which
   // only becomes true once threshold's been hit — mirrors that gate here
   // instead of letting the click go straight to a bare-revert tx
@@ -311,10 +313,8 @@ export function HandshakeGraph({
 
   async function addParticipant() {
     setError(null);
-    if (!isOpen) {
-      setError(
-        `Movement is ${status}, not Open — no more participants can join.`,
-      );
+    if (!canJoin) {
+      setError(`Movement is ${status} — no more participants can join.`);
       return;
     }
 
@@ -557,7 +557,7 @@ export function HandshakeGraph({
         className="movement-detail-join"
         onClick={addParticipant}
         disabled={isAddingParticipant}
-        title={!isOpen ? `Movement is ${status}, not Open` : undefined}
+        title={!canJoin ? `Movement is ${status}` : undefined}
       >
         {isAddingParticipant ? "Joining..." : "+ Add Participant"}
       </button>
