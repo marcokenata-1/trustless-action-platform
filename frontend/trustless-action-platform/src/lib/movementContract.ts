@@ -1,6 +1,3 @@
-// reads from .env instead of a hardcoded literal — every `npx hardhat node`
-// restart changes this address, run `npm run sync-addresses` after each
-// fresh deploy instead of hand-editing this file
 export const movementAddress = import.meta.env.VITE_MOVEMENT_ADDRESS;
 
 export const movementAbi = [

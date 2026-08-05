@@ -3,10 +3,6 @@ type MovementManifest = {
   description: string;
   images: string[];
   media: string[];
-  // the exact datetime picked in the form — the contract only stores whole
-  // days (deadlineBlock), so this is the only place the real due time
-  // survives; movement detail reads this instead of reconstructing an
-  // estimate from the on-chain block
   due: string;
 };
 
