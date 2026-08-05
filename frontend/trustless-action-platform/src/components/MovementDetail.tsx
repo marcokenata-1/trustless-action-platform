@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useReadContract, useWriteContract, useBlockNumber } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useBlock } from "wagmi";
 import type { MovementResponse } from "./MovementList";
 import { movementAddress, movementAbi } from "../lib/movementContract";
 import { hardhatLocal } from "../lib/chains";
@@ -11,6 +11,7 @@ type MovementManifest = {
   description: string;
   images: string[];
   media: string[];
+  due?: string; // absent on movements created before this field existed
 };
 
 type MovementDetailProps = {
@@ -22,15 +23,25 @@ function gatewayUrl(cid: string) {
   return `https://ipfs.io/ipfs/${cid.replace(/^ipfs:\/\//, "")}`;
 }
 
-// Movement.sol computes deadlineBlock as block.number + deadlineDays * 7200
-// — 7200 blocks/day assumes a 12s block time (mainnet's PoS assumption),
-// not the actual local chain, which mines instantly per tx. so this is an
-// estimate using the contract's own assumption, not a real timestamp
-const ASSUMED_BLOCK_SECONDS = 12;
-function estimateDeadlineDate(deadlineBlock: bigint, currentBlock: bigint | undefined) {
-  if (currentBlock === undefined) return null;
-  const secondsRemaining = Number(deadlineBlock - currentBlock) * ASSUMED_BLOCK_SECONDS;
-  return new Date(Date.now() + secondsRemaining * 1000);
+// the contract only stores whole days (deadlineBlock), so it can't hold the
+// exact datetime picked in the form — that exact value is stashed in the
+// manifest instead (see CreateMovementForm/ipfs.ts) and read from there
+// below. this block-based version is only a fallback for movements created
+// before that field existed, and it's an estimate, not the real value —
+// Movement.sol computes deadlineBlock as createdBlock + deadlineDays * 7200,
+// so anchoring on the real creation block's timestamp and adding
+// deadlineDays back matches that math, but still loses whatever time-of-day
+// got rounded away by CreateMovementForm's Math.ceil at creation time
+const BLOCKS_PER_DAY = 7200;
+function estimateDeadlineFromBlock(
+  deadlineBlock: bigint,
+  createdBlock: bigint,
+  createdTimestamp: bigint | undefined,
+) {
+  if (createdTimestamp === undefined) return null;
+  const deadlineDays = (deadlineBlock - createdBlock) / BigInt(BLOCKS_PER_DAY);
+  const deadlineSeconds = createdTimestamp + deadlineDays * 86_400n;
+  return new Date(Number(deadlineSeconds) * 1000);
 }
 
 export function MovementDetail({ movement: initial, onBack }: MovementDetailProps) {
@@ -70,8 +81,20 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
 
   const { address } = useAccount();
   const { writeContractAsync, isPending: isJoining } = useWriteContract();
-  const { data: currentBlock } = useBlockNumber({ chainId: hardhatLocal.id });
-  const estimatedDeadline = estimateDeadlineDate(BigInt(movement.due), currentBlock);
+  // only need the block lookup as a fallback for movements without
+  // manifest.due — skip the RPC call otherwise
+  const { data: createdBlockData } = useBlock({
+    blockNumber: BigInt(movement.createdBlock),
+    chainId: hardhatLocal.id,
+    query: { enabled: !manifest?.due },
+  });
+  const deadline = manifest?.due
+    ? new Date(manifest.due)
+    : estimateDeadlineFromBlock(
+        BigInt(movement.due),
+        BigInt(movement.createdBlock),
+        createdBlockData?.timestamp,
+      );
 
   const onchainId = BigInt(movement.movementId);
   const { data: isCommitted, refetch: refetchIsCommitted } = useReadContract({
@@ -108,10 +131,10 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
         {isCommitted && movement.status === "Open" ? "Committed" : movement.status}
       </span>
       <p className="movement-due">
-        Tally {movement.tally}/{movement.threshold} · deadline: block #
-        {Number(movement.due).toLocaleString()}
-        {estimatedDeadline &&
-          ` (~${estimatedDeadline.toLocaleDateString()} ${estimatedDeadline.toLocaleTimeString()}, est.)`}
+        Tally {movement.tally}/{movement.threshold} · deadline:{" "}
+        {deadline
+          ? `${deadline.toLocaleDateString()} ${deadline.toLocaleTimeString()}`
+          : "…"}
       </p>
 
       <button
