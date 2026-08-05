@@ -10,9 +10,10 @@ export type MovementResponse = {
   organiser: string;
   threshold: string;
   cid: string;
-  due: string; 
+  due: string;
   status: string;
   tally: string;
+  createdBlock: number;
 };
 
 // on-chain Status enum is only Open/Activated/Cancelled — "Committed" isn't

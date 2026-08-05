@@ -60,10 +60,12 @@ export function CreateMovementForm() {
     try {
       if (!address) throw new Error("Connect your wallet first");
 
-      const manifestCid = await uploadMovementWiki(imageFiles, title, description);
+      const manifestCid = await uploadMovementWiki(imageFiles, title, description, due);
 
       // contract wants deadline in days, we only have a datetime picker,
-      // so just round up to whole days from now (min 1, can't backdate)
+      // so just round up to whole days from now (min 1, can't backdate) —
+      // the exact due datetime itself is preserved in the manifest above,
+      // this rounded version is only what actually gates the contract
       const dueDate = new Date(due);
       const deadlineDays = BigInt(
         Math.max(1, Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000)),

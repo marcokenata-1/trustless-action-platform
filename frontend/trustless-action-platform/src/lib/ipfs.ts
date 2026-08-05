@@ -3,6 +3,11 @@ type MovementManifest = {
   description: string;
   images: string[];
   media: string[];
+  // the exact datetime picked in the form — the contract only stores whole
+  // days (deadlineBlock), so this is the only place the real due time
+  // survives; movement detail reads this instead of reconstructing an
+  // estimate from the on-chain block
+  due: string;
 };
 
 async function pinFile(file: File): Promise<string> {
@@ -50,18 +55,20 @@ function buildMovementManifest(
   images: string[],
   title: string,
   description: string,
+  due: string,
   media: string[] = [],
 ): MovementManifest {
-  return { title, description, images, media };
+  return { title, description, images, media, due };
 }
 
 export default async function uploadMovementWiki(
   imageFiles: File[],
   title: string,
   description: string,
+  due: string,
 ): Promise<string> {
   const imageCids = await Promise.all(imageFiles.map(pinFile));
-  const manifest = buildMovementManifest(imageCids, title, description);
+  const manifest = buildMovementManifest(imageCids, title, description, due);
   const manifestCid = await pinJSON(manifest);
   return manifestCid;
 }
