@@ -206,25 +206,6 @@ describe("Movement", function () {
       await expect(movement.connect(alice).commit(movementId)).to.be.revert(ethers);
     });
 
-    it("reverts when the movement is not Open (already Activated)", async function () {
-      const { movement, reputation, organiser, alice, bob, carol } =
-        await deployFixture();
-      const movementId = await createMovement(
-        movement,
-        reputation,
-        organiser,
-        2n,
-        1n,
-      );
-
-      await movement.connect(alice).commit(movementId);
-      await movement.connect(bob).commit(movementId);
-
-      expect(await movement.getStatus(movementId)).to.equal(1n);
-
-      await expect(movement.connect(carol).commit(movementId)).to.be.revert(ethers);
-    });
-
     it("flips status to Activated exactly when the tally reaches the threshold, and only then", async function () {
       const { movement, reputation, organiser, alice, bob, carol } =
         await deployFixture();

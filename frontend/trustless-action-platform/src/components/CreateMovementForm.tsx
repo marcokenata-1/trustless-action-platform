@@ -11,7 +11,7 @@ export function CreateMovementForm() {
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [description, setDescription] = useState("");
-  const [threshold, setThreshold] = useState("4"); // 4 is the practical floor — see min on the input below
+  const [threshold, setThreshold] = useState("4"); 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
