@@ -143,9 +143,6 @@ export function CreateMovementForm() {
         <input
           id="movement-threshold"
           type="number"
-          // below 4, nobody can ever hit 3 distinct peer handshakes to
-          // claim attendance (AttendanceVerifier.MIN_REQUIRED_PEER_COUNT
-          // is 3, and you can't count yourself as your own peer)
           min={4}
           value={threshold}
           onChange={(e) => setThreshold(e.target.value)}

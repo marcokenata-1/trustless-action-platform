@@ -11,7 +11,7 @@ type MovementManifest = {
   description: string;
   images: string[];
   media: string[];
-  due?: string; // absent on movements created before this field existed
+  due?: string; 
 };
 
 type MovementDetailProps = {
@@ -124,8 +124,6 @@ export function MovementDetail({ movement: initial, onBack }: MovementDetailProp
       <button
         className="movement-detail-join"
         onClick={handleJoin}
-        // commit() now accepts joiners past threshold too — matches
-        // Movement.sol, which only actually blocks on Cancelled
         disabled={!address || isJoining || isCommitted === true || movement.status === "Cancelled"}
       >
         {isCommitted ? "Joined" : isJoining ? "Joining..." : "Join"}
