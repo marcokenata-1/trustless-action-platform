@@ -4,14 +4,6 @@ FROM python:3.14-slim
 # Set working directory inside container
 WORKDIR /offchain/backend
 
-# Install system dependencies to build psycopg-c
-# Update apt, install gcc and libpq-dev
-# Clean up apt cache to reduce image size
-RUN apt-get update && apt-get install -y \ 
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy requirement dependencies
 COPY requirements.txt .
 
