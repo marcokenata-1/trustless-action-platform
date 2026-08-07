@@ -40,7 +40,7 @@ This application includes:
 
 ## Prerequisite
 
-1. Following the Instruction on [onchain setup (Step 2 and 3)](https://github.com/marcokenata-1/trustless-action-platform/blob/main/readme.txt) to run the blockchain node locally
+1. Following the Instruction [Here](https://github.com/marcokenata-1/trustless-action-platform/blob/main/readme.txt) (Step 2 and 3) on the .txt file to run the blockchain node locally
 2. Run the following commands
 
 ```bash
