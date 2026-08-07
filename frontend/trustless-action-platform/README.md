@@ -17,7 +17,7 @@ src/
   App.tsx                    tab routing (Movements / Joined / Create) + the create-requirement keeper poll
   components/
     AppBar.tsx                title bar: wallet connect + reputation badge
-    ConnectWallet.tsx          connect/disconnect button (wagmi's injected connector)
+    ConnectWallet.tsx          connect/disconnect button (wagmi's injected connector) and Wallet List if there is no metamask
     ReputationBadge.tsx        shows your reputation + auto-registers a fresh account on first connect
     CreateMovementForm.tsx     create a movement: uploads to IPFS, then calls Movement.createMovement
     MovementList.tsx           list from the indexer, joined/unjoined filter
