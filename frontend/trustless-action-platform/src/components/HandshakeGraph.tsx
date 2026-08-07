@@ -16,13 +16,8 @@ import {
   attendanceVerifierAddress,
   attendanceVerifierAbi,
 } from "../lib/attendanceVerifierContract";
-import { hardhatLocal } from "../lib/chains";
+import { hardhatLocal, LOCAL_DEV_MNEMONIC, LOCAL_ACCOUNT_COUNT } from "../lib/chains";
 import { syncIndexer } from "../lib/indexer";
-
-
-const LOCAL_DEV_MNEMONIC =
-  "test test test test test test test test test test test junk";
-const MAX_LOCAL_ACCOUNTS = 20;
 
 const HANDSHAKE_TYPES = {
   Handshake: [
@@ -308,7 +303,7 @@ export function HandshakeGraph({
       });
 
       let account = null;
-      for (let i = 0; i < MAX_LOCAL_ACCOUNTS; i++) {
+      for (let i = 0; i < LOCAL_ACCOUNT_COUNT; i++) {
         const candidate = mnemonicToAccount(LOCAL_DEV_MNEMONIC, { addressIndex: i });
         const alreadyCommitted = await publicClient.readContract({
           address: movementAddress,

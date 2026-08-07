@@ -54,6 +54,17 @@
   }
 }
 
+.wallet-connect {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wallet-connect-divider {
+  font-size: 13px;
+  color: #6b6375;
+}
+
 .wallet-connect-button {
   padding: 8px 16px;
   border: none;
