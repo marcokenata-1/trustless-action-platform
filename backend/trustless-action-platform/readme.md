@@ -8,13 +8,35 @@ This application implements the off-chain section of the trustless action platfo
 
 This application includes:
 
-*   FastAPI configuration
-*   Docker containerization
-*   SQLAlchemy models (not finalized)
+* FastAPI configuration
+* Docker containerization
+* Dynamic Reputation Threshold Calculation
+
+---
+
+## Prerequisite
+
+1. Following the Instruction on [onchain setup](https://github.com/marcokenata-1/trustless-action-platform/tree/main) to run the blockchain node locally
+
+2. Run the following commands
+
+```bash
+cp .env.example .env
+```
+
+3. COPY one of the Address and Private key to `.env` file created in Step 2.
 
 ---
 
 ## Usage
+
+To run the offchain service, Change directory to backend/trustless-action-platform before running the application 
+
+To change the directory, run the following command below in your terminal
+
+```bash
+cd /backend/trustless-action-platform
+```
 
 To start the application, run the provided shell script from your terminal:
 
@@ -27,11 +49,3 @@ If permission denied, you can run the code below on terminal with the same direc
 ```bash
 chmod +x ./run_app
 ```
-
-## Needed Modifications
---- 
-
-**Database Credentials**: Ensure the application points to the correct database host and uses secure credentials. 
-You can modify database credentials in `config.py` by changing variables that start with database, such as `database_url`, `database_user`, `database_password`, and `database_name`.
-
-**Database Model Infrastructure**: The database structure itself hasn't been finalized.

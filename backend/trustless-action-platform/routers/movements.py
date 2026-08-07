@@ -10,6 +10,8 @@ from dependencies import GetContract
 
 from config import Settings
 
+settings = Settings()
+
 router = APIRouter(
     prefix="/movement",
     tags=["movement"]
@@ -23,7 +25,6 @@ cache = {
 cache_ttl = 10 # ponytail: shrunk from 300 for demo visibility, bump back up before real deployment
 
 def get_dynamic_threshold(
-    w3 : Web3 = Depends(get_web3),
     contract : Contract = Depends(GetContract("Reputation")),
 ) -> int:
     current_time = time.time()
@@ -69,7 +70,52 @@ def get_dynamic_threshold(
 # Create Movement with Dynamic Threshold Calculation
 @router.post("/create", status_code=201)
 def create_movement(
+    w3 : Web3 = Depends(get_web3),
     threshold: int = Depends(get_dynamic_threshold),
+    movement_contract: Contract = Depends(GetContract("Movement"))
 ):
     # Passing the threshold to front end
-    return threshold
+    address = settings.address
+    private_key = settings.private_key
+
+    try:
+        # Get Checksum Address
+        checksum_address = w3.to_checksum_address(address)
+
+        # Get current Nonce
+        nonce = w3.eth.get_transaction_count(checksum_address)
+
+        # Build a transaction 
+        transaction = movement_contract.functions.setCreateRequirement(threshold).build_transaction({
+            'from' : checksum_address,
+            'nonce' : nonce,
+            'chainId': w3.eth.chain_id
+        })
+
+        # Sign Transaction with Private Key
+        signed_transcation = w3.eth.account.sign_transaction(transaction, private_key=private_key)
+
+        # Send the transaction to network
+        transaction_hash = w3.eth.send_raw_transaction(signed_transcation.raw_transaction)
+
+        # Wait for transaction to be successfully done
+        transaction_receipt = w3.eth.wait_for_transaction_receipt(transaction_hash)
+        if transaction_receipt["status"] != 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Transaction Failed"
+            )
+
+        return {
+            "message" : "Reputation Requirement Updated",
+            "threshold" : threshold,
+            "transaction_hash" : transaction_hash.hex()
+        } 
+
+    except Exception as e:
+        print(f"Failed to Update : {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update requirement"
+        )
+    

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { parseEventLogs } from "viem";
 import uploadMovementWiki from "../lib/ipfs";
 import { useAccount, useWriteContract, usePublicClient, useReadContract } from "wagmi";
@@ -29,15 +28,11 @@ export function CreateMovementForm() {
     chainId: hardhatLocal.id,
     query: { enabled: !!address },
   });
-  const { data: createRequirement } = useQuery({
-    queryKey: ["create-threshold"],
-    queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_API_URL}/movement/create`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error("Failed to fetch create threshold");
-      return res.json() as Promise<number>;
-    },
+  const { data: createRequirement } = useReadContract({
+    address: movementAddress,
+    abi: movementAbi,
+    functionName: "createRequirement",
+    chainId: hardhatLocal.id,
   });
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
