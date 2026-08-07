@@ -17,15 +17,15 @@ src/
   App.tsx                    tab routing (Movements / Joined / Create) + the create-requirement keeper poll
   components/
     AppBar.tsx                title bar: wallet connect + reputation badge
-    ConnectWallet.tsx          connect/disconnect button (wagmi's injected connector) and Wallet List if there is no metamask
+    ConnectWallet.tsx          connect/disconnect + a MetaMask button (if installed) and/or a dropdown of Hardhat test accounts (always available)
     ReputationBadge.tsx        shows your reputation + auto-registers a fresh account on first connect
     CreateMovementForm.tsx     create a movement: uploads to IPFS, then calls Movement.createMovement
     MovementList.tsx           list from the indexer, joined/unjoined filter
     MovementDetail.tsx         one movement: commit, status, deadline
     HandshakeGraph.tsx         peer graph for a movement + claim attendance flow
   lib/
-    wagmi.ts                   wagmi config (chain, connector)
-    chains.ts                  the local Hardhat chain definition
+    wagmi.ts                   wagmi config (chain, connectors — MetaMask + one mock connector per Hardhat account)
+    chains.ts                  the local Hardhat chain definition + the 20 default account addresses
     movementContract.ts        Movement address + ABI
     reputationContract.ts      Reputation address + ABI
     attendanceVerifierContract.ts   AttendanceVerifier address + ABI
@@ -64,10 +64,15 @@ beyond the empty shell to work — see the root [`readme.txt`](../../readme.txt)
 
 ## Notes
 
-- **Wallet connection**: `wagmi.ts` uses a single `injected({ target: "metaMask" })` connector with
-  `multiInjectedProviderDiscovery: false` — deliberately, so you get exactly one "Connect with
-  MetaMask" button instead of duplicates from wagmi's EIP-6963 auto-discovery picking up the same
-  wallet twice.
+- **Wallet connection**: `wagmi.ts` includes `injected({ target: "metaMask" })` only when
+  `window.ethereum` exists (`multiInjectedProviderDiscovery: false` so that's exactly one button,
+  not duplicates from wagmi's EIP-6963 auto-discovery), plus a `mock` connector per default
+  Hardhat account, always. `ConnectWallet.tsx` shows the MetaMask button and the test-account
+  dropdown together when both are available (with an "or" divider), or whichever one exists on its
+  own otherwise. The mock connectors work with zero browser extension — Hardhat's default accounts
+  are unlocked server-side, so transactions sign through the RPC node directly. This means a demo
+  machine with no MetaMask installed still works, and even with MetaMask installed, switching
+  between accounts is often faster via the dropdown than through the extension.
 - **MetaMask nonce caching**: every `demo:up` run resets the chain to block 0, but MetaMask caches
   nonces per network and doesn't know that happened. If a transaction fails with a nonce mismatch,
   Settings → Advanced → "Clear activity tab data" for the Hardhat network in MetaMask.
