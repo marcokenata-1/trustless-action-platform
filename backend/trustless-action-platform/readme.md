@@ -33,8 +33,11 @@ $$ \text{Threshold} = \max \left( \lfloor \log_{10}(\text{userCount}) \times B \
 This application includes:
 
 * FastAPI configuration
-* Docker containerization
 * Dynamic Reputation Threshold Calculation (Implemented in `/routers/movements.py`)
+
+`demo-up.sh` (the repo's one-command demo) runs this directly via `uvicorn` — no Docker involved.
+`run_app.sh`, if you run it standalone instead, prefers Docker when it's running and falls back to
+`uvicorn` otherwise — but that script isn't what the demo uses.
 
 ---
 
@@ -47,7 +50,11 @@ This application includes:
 cp .env.example .env
 ```
 
-3. COPY one of the Address and Private key from Step 1 to `.env` file created in Step 2.
+`.env.example` already has the correct `ADDRESS`/`PRIVATE_KEY` filled in — **don't** swap in a
+different account from `npx hardhat node`'s output. `Movement.sol`'s `requirementUpdater` is set to
+this one specific dedicated wallet at deploy time (`ignition/modules/Movement.ts`), deliberately not
+one of Hardhat's 20 default accounts — using any other key here makes every `setCreateRequirement`
+call revert with "unauthorised".
 
 ---
 
@@ -77,5 +84,6 @@ chmod +x ./run_app
 
 Once the application is successfully running, the FastAPI server will be accessible locally at:
 
-- URL : http://localhost:8000
-- API Documentation : http://locahost:8000/docs
+- URL / docs : http://localhost:8003/docs when started via `demo-up.sh` (what the frontend expects —
+  `VITE_BACKEND_API_URL`). Running `run_app.sh` standalone instead defaults to port 8000
+  (`run_app.sh`'s own `port` variable).

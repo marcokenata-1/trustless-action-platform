@@ -1,10 +1,15 @@
 import { createConfig, http } from "wagmi";
-import { injected } from "wagmi/connectors";
-import { hardhatLocal } from "./chains";
+import { injected, mock } from "wagmi/connectors";
+import { hardhatLocal, hardhatAccountAddresses } from "./chains";
+
+const hasInjectedWallet = typeof window !== "undefined" && !!window.ethereum;
 
 export const config = createConfig({
   chains: [hardhatLocal],
-  connectors: [injected({ target: "metaMask" })],
+  connectors: [
+    ...(hasInjectedWallet ? [injected({ target: "metaMask" })] : []),
+    ...hardhatAccountAddresses.map((address) => mock({ accounts: [address] })),
+  ],
   multiInjectedProviderDiscovery: false,
   transports: {
     [hardhatLocal.id]: http(),

@@ -24,8 +24,8 @@ next to you, and a contract verifies the proofs before crediting reputation.
 | Contract | What it does | Docs |
 |---|---|---|
 | `Reputation.sol` | Non-transferable, on-chain reputation. Initial grant on registration, reward per verified attendance. | [`docs/README-reputation.md`](docs/README-reputation.md), [`docs/reputation-events.md`](docs/reputation-events.md) |
-| `Movement.sol` | Create/commit/resolve a movement. Gates `createMovement` behind a reputation threshold (`createRequirement`), settable only by the `requirementUpdater` (the backend keeper's wallet). | — |
-| `AttendanceVerifier.sol` | Verifies a participant's mutually-signed handshake proofs against their peers and calls `Reputation.rewardAttendance`. | — |
+| `Movement.sol` | Create/commit/resolve a movement. Gates `createMovement` behind a reputation threshold (`createRequirement`), settable only by the `requirementUpdater` (the backend keeper's wallet). | [`docs/README-movement.md`](docs/README-movement.md) |
+| `AttendanceVerifier.sol` | Verifies a participant's mutually-signed handshake proofs against their peers and calls `Reputation.rewardAttendance`. | [`docs/README-attendance-verifier.md`](docs/README-attendance-verifier.md) |
 
 ## Services
 
