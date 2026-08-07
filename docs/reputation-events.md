@@ -10,6 +10,7 @@ live over a WebSocket provider. Indexed parameters (`indexed`) are filterable to
 ## Events
 
 | Event | Signature | Emitted when | Consumed by | Why they care |
+-|-|-|-|-
 | `Registered` | `Registered(address indexed account, uint256 initialGrant)` | An account calls `register()`, **or** is auto-registered on its first `rewardAttendance` | **Off-chain threshold service**, **Indexer/backend** | User count + total reputation changed → recompute the dynamic create-requirement. The indexer uses this as the **canonical list of all users** (see note below). |
 | `AttendanceRewarded` | `AttendanceRewarded(address indexed participant, uint256 indexed movementId, uint256 amount, uint256 newBalance)` | `rewardAttendance(...)` credits a participant (called by the AttendanceVerifier) | **Off-chain threshold service**, **Indexer/backend**, **Client apps (via indexer)** | Total/average reputation changed → recompute threshold. Indexer updates the user's balance + attendance history; UI shows the reward and the new balance (`newBalance` is included so consumers don't need a follow-up `balanceOf` call). |
 | `AttendanceVerifierUpdated` | `AttendanceVerifierUpdated(address indexed previous, address indexed current)` | Owner calls `setAttendanceVerifier(...)` | **Ops/admin monitoring**, **Deployment tooling** | Security-sensitive: this is the address allowed to mint reputation. Monitor for unexpected changes; deployment scripts use it to confirm wiring. |
@@ -19,15 +20,15 @@ live over a WebSocket provider. Indexed parameters (`indexed`) are filterable to
 ## Consumers at a glance
 
 - **Off-chain threshold service** (Movement's `requirementUpdater`): listens to `Registered` and
-  `AttendanceRewarded`. Whenever total/average reputation moves, it recomputes the movement-creation
-  threshold and, if it changed, calls `Movement.setCreateRequirement(...)`. It reads current values
-  via `getReputationStats()` / `balanceOf(...)`; the events are the **trigger** to recompute.
+   `AttendanceRewarded`. Whenever total/average reputation moves, it recomputes the movement-creation
+   threshold and, if it changed, calls `Movement.setCreateRequirement(...)`. It reads current values
+   via `getReputationStats()` / `balanceOf(...)`; the events are the **trigger** to recompute.
 - **Indexer / backend**: listens to `Registered` + `AttendanceRewarded` to maintain a queryable
-  copy of reputation state (per-user balances, attendance history, leaderboard) for the UI.
+   copy of reputation state (per-user balances, attendance history, leaderboard) for the UI.
 - **Client apps (Organiser / Participant)**: normally read from the indexer/backend rather than the
-  chain directly; they surface balances, registration status, and reward notifications.
+   chain directly; they surface balances, registration status, and reward notifications.
 - **Ops/admin monitoring**: watches the three `*Updated` admin events for a config/security audit
-  trail.
+   trail.
 
 ## Note — enumerating all users
 
