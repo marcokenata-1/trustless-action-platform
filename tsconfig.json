@@ -16,5 +16,6 @@
     /* Strictness & Code Quality */
     "strict": true,
     "skipLibCheck": true
-  }
+  },
+  "exclude": ["node_modules", "frontend"]
 }
