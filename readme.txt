@@ -45,9 +45,14 @@ From the repo root:
 
   cd frontend/trustless-action-platform
   npm install
+  cp .env.example .env
   cd ../..
 
   pip install -r backend/trustless-action-platform/requirements.txt
+
+Get your own Pinata JWT (used for uploading movement title/description/images
+to IPFS) from https://app.pinata.cloud/ (API Keys), then set VITE_PINATA_JWT
+in frontend/trustless-action-platform/.env to it.
 
 
 3. One-command local demo (recommended)

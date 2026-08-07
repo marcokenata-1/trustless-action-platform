@@ -38,6 +38,10 @@ root) rewrites this directory's `.env` after every fresh deploy, so you don't se
 
 ## Environment
 
+```bash
+cp .env.example .env
+```
+
 ```
 VITE_PINATA_JWT=                    # IPFS pinning — get your own from pinata.cloud
 VITE_BACKEND_API_URL=http://localhost:8003
