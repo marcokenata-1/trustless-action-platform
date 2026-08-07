@@ -57,3 +57,11 @@ setEnvVar(
   "ATTENDANCE_VERIFIER_ADDRESS",
   attendanceVerifier,
 );
+
+setEnvVar("backend/trustless-action-platform/.env", "MOVEMENT_ADDRESS", movement);
+setEnvVar("backend/trustless-action-platform/.env", "REPUTATION_ADDRESS", reputation);
+setEnvVar(
+  "backend/trustless-action-platform/.env",
+  "ATTENDANCE_VERIFIER_ADDRESS",
+  attendanceVerifier,
+);

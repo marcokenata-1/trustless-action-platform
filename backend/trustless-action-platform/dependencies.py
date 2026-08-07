@@ -17,11 +17,10 @@ class GetContract:
 
     def __call__(self, w3 : Web3 = Depends(get_web3)) -> Contract:
 
-        contract_info = settings.contracts[self.contract_name]
-        # print(f"Contract Info : {contract_info}")
-        checksum_address = w3.to_checksum_address(contract_info['address'])
+        abi = settings.contracts[self.contract_name]['abi']
+        checksum_address = w3.to_checksum_address(settings.address_for(self.contract_name))
 
         return w3.eth.contract(
             address=checksum_address,
-            abi=contract_info['abi']
+            abi=abi
         )

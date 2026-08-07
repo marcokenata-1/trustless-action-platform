@@ -14,6 +14,10 @@ import ReputationModule from "./Reputation.js";
  * later (the off-chain threshold service that reads Reputation's stats and
  * pushes the dynamic requirement in) - provide it via params.json.
  *
+ * Defaults to a dedicated keeper wallet (not one of Hardhat's 20 default
+ * accounts) so users testing with any of those accounts in MetaMask never
+ * race the keeper's own nonce
+ *
  * Cross-contract wiring beyond this (e.g. anything AttendanceVerifier needs)
  * is NOT done here, same reasoning as ReputationModule - it belongs in
  * Platform.ts, which can compose this module via m.useModule(MovementModule).
@@ -27,7 +31,7 @@ const MovementModule = buildModule("MovementModule", (m) => {
 
   const requirementUpdater = m.getParameter(
     "requirementUpdater",
-    m.getAccount(0),
+    "0x6d4F6d958a8D6E7D503c2242798208Ca20451127",
   );
   const initialCreateRequirement = m.getParameter(
     "initialCreateRequirement",
