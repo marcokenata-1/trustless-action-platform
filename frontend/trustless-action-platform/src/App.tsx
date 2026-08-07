@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import "./App.css";
 import { AppBar } from "./components/AppBar";
@@ -9,11 +10,32 @@ import { MovementDetail } from "./components/MovementDetail";
 
 type Tab = "create" | "list" | "joined";
 
+const CREATE_REQUIREMENT_POLL_MS = 10_000;
+
+function useCreateRequirementKeeper() {
+  const queryClient = useQueryClient();
+  useQuery({
+    queryKey: ["create-requirement-keeper"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_API_URL}/movement/create`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to refresh create-requirement");
+      const body = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["readContract"] });
+      return body;
+    },
+    refetchInterval: CREATE_REQUIREMENT_POLL_MS,
+    retry: false,
+  });
+}
+
 function App() {
   const { isConnected } = useAccount();
   const [tab, setTab] = useState<Tab>("list");
   const [selectedMovement, setSelectedMovement] =
     useState<MovementResponse | null>(null);
+  useCreateRequirementKeeper();
 
   return (
     <>

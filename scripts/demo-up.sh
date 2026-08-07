@@ -5,6 +5,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 HARDHAT_PID=""
+BACKEND_PID=""
 INDEXER_PID=""
 SIMULATOR_PID=""
 FRONTEND_PID=""
@@ -13,19 +14,28 @@ CLEANED_UP=""
 cleanup() {
   [ -n "$CLEANED_UP" ] && return
   CLEANED_UP=1
+  # best-effort teardown: set -e is active for the whole script and applies
+  # here too — without this, the first kill/rm that hits an already-dead
+  # target (nonzero exit) aborts cleanup on the spot, skipping every line
+  # after it (docker rm -f included)
+  set +e
   echo ""
   echo "Shutting everything down..."
   [ -n "$FRONTEND_PID" ] && kill "$FRONTEND_PID" 2>/dev/null
   [ -n "$SIMULATOR_PID" ] && kill "$SIMULATOR_PID" 2>/dev/null
   [ -n "$INDEXER_PID" ] && kill "$INDEXER_PID" 2>/dev/null
-  [ -n "$HARDHAT_PID" ] && kill "$HARDHAT_PID" 2>/dev/null
-  docker rm -f blockchain-container 2>/dev/null
+  [ -n "$BACKEND_PID" ] && kill "$BACKEND_PID" 2>/dev/null
+  # kill by port, not $HARDHAT_PID — that PID is the npx wrapper, not the
+  # actual hardhat node process underneath it, so a plain kill leaves the
+  # real node process (and port 8545) alive
+  lsof -ti :8545 | xargs kill -9 2>/dev/null
+  lsof -ti :8003 | xargs kill -9 2>/dev/null
   exit 0
 }
 trap cleanup INT TERM EXIT
 
-echo "Freeing ports 8545 (hardhat), 3001 (simulator), 3002 (indexer) if in use..."
-lsof -ti :8545,:3001,:3002 | xargs kill -9 2>/dev/null || true
+echo "Freeing ports 8545 (hardhat), 3001 (simulator), 3002 (indexer), 8003 (backend) if in use..."
+lsof -t -i :8545 -i :3001 -i :3002 -i :8003 | xargs kill -9 2>/dev/null || true
 
 echo "Starting hardhat node..."
 npx hardhat node &
@@ -39,6 +49,13 @@ until curl -s -X POST http://127.0.0.1:8545 \
   sleep 0.5
 done
 echo "Hardhat node ready."
+echo
+
+echo "Funding keeper wallet (0x6d4F6d958a8D6E7D503c2242798208Ca20451127)..."
+curl -s -X POST http://127.0.0.1:8545 \
+  -H "content-type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_sendTransaction","params":[{"from":"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266","to":"0x6d4F6d958a8D6E7D503c2242798208Ca20451127","value":"0x8AC7230489E80000"}],"id":1}' \
+  > /dev/null
 echo
 
 echo "Clearing Ignition deployment cache..."
@@ -57,12 +74,14 @@ rm -f services/indexer/data/indexer.sqlite services/indexer/data/indexer.sqlite-
 rm -f services/simulator/data/handshakes.sqlite services/simulator/data/handshakes.sqlite-shm services/simulator/data/handshakes.sqlite-wal
 echo
 
-echo "Building and starting backend (dynamic create-threshold API)..."
-docker rm -f blockchain-container > /dev/null 2>&1
-docker build -t trustless-action-platform-api backend/trustless-action-platform > /dev/null
-docker run -d --name blockchain-container -p 8003:8000 \
-  --env-file backend/trustless-action-platform/.env \
-  trustless-action-platform-api > /dev/null
+echo "Starting backend (dynamic create-threshold API)..."
+(cd backend/trustless-action-platform && python3 -m uvicorn main:app --host 127.0.0.1 --port 8003) &
+BACKEND_PID=$!
+
+echo "Waiting for backend..."
+until curl -s http://127.0.0.1:8003/docs > /dev/null 2>&1; do
+  sleep 0.5
+done
 echo "backend ready on :8003."
 echo
 

@@ -13,7 +13,7 @@ into SQLite. A React frontend and FastAPI backend support the demo UI.
 Required:
   - Node.js 22+ (LTS recommended)
   - npm (comes with Node.js)
-  - Docker (for the FastAPI backend container)
+  - Python 3 + pip (for the FastAPI backend, runs directly via uvicorn — no Docker needed)
   - A Unix-like shell (macOS / Linux / WSL)
   - MetaMask (or similar) for the frontend wallet demo
 
@@ -22,7 +22,7 @@ Free local ports:
   - 3001  Simulator API
   - 3002  Indexer API
   - 5173  Frontend (Vite)
-  - 8003  Backend API (Docker maps 8003 -> 8000)
+  - 8003  Backend API (uvicorn, run directly)
 
 Main libraries (repo root npm install):
   - hardhat, ethers, @openzeppelin/contracts
@@ -31,7 +31,7 @@ Main libraries (repo root npm install):
 Frontend (separate npm install under frontend/trustless-action-platform):
   - react, vite, wagmi, viem, @tanstack/react-query
 
-Backend (installed inside Docker image from requirements.txt):
+Backend (repo root: pip install -r backend/trustless-action-platform/requirements.txt):
   - fastapi, uvicorn, web3, sqlalchemy, psycopg, ...
 
 
@@ -47,7 +47,7 @@ From the repo root:
   npm install
   cd ../..
 
-Ensure Docker is running before the one-command demo.
+  pip install -r backend/trustless-action-platform/requirements.txt
 
 
 3. One-command local demo (recommended)
@@ -57,10 +57,10 @@ Make sure ports 8545, 3001, 3002, 5173, and 8003 are free. Then:
 
   npm run demo:up
 
-This starts a fresh Hardhat node, deploys the Attendance Ignition module,
-syncs contract addresses into .env files, clears local SQLite DBs, builds
-and starts the backend container, then starts indexer, simulator, and
-frontend.
+This starts a fresh Hardhat node, funds the backend keeper's dedicated wallet,
+deploys the Attendance Ignition module, syncs contract addresses into .env
+files, clears local SQLite DBs, then starts the backend (uvicorn), indexer,
+simulator, and frontend.
 
 
 If Hardhat fails with:

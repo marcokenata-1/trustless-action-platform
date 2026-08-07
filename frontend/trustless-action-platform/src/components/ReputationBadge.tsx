@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { hardhatLocal } from "../lib/chains";
 import { reputationAddress, reputationAbi } from "../lib/reputationContract";
+import { movementAddress, movementAbi } from "../lib/movementContract";
 
 export function ReputationBadge() {
   const { address } = useAccount();
@@ -36,15 +37,11 @@ export function ReputationBadge() {
     chainId: hardhatLocal.id,
   });
 
-  const { data: createThreshold } = useQuery({
-    queryKey: ["create-threshold"],
-    queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_API_URL}/movement/create`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error("Failed to fetch create threshold");
-      return res.json() as Promise<number>;
-    },
+  const { data: createThreshold } = useReadContract({
+    address: movementAddress,
+    abi: movementAbi,
+    functionName: "createRequirement",
+    chainId: hardhatLocal.id,
   });
 
   useEffect(() => {
