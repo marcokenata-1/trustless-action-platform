@@ -30,6 +30,14 @@ cp .env.example .env
 
 ## Usage
 
+To run the offchain service, Change directory to backend/trustless-action-platform before running the application 
+
+To change the directory, run the following command below in your terminal
+
+```bash
+cd /backend/trustless-action-platform
+```
+
 To start the application, run the provided shell script from your terminal:
 
 ```bash
